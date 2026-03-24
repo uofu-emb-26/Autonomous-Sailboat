@@ -15,12 +15,14 @@ Template slides (0-based index -> type):
   7: cost_analysis BLANK_1_1_1...  — Cost Analysis, 3x {{paragraph N Title}} + {{paragraph N}}, AutoHelm, slide#
 
 Usage:
-  Edit `slide_data` at the bottom, then run:
-    python build_presentation.py
+  python build_rustPunk.py <slides.yaml> [output.pptx]
 """
 
 import copy
+import sys
 from pathlib import Path
+
+import yaml
 from lxml import etree
 from pptx import Presentation
 
@@ -28,7 +30,7 @@ DOCS = Path(__file__).resolve().parent
 ROOT = DOCS.parent
 TEMPLATE = DOCS / "rustPunk_template.pptx"
 OUTPUT = DOCS / "Literature_Review_Presentation.pptx"
-BRAND = "ALAN(v)"
+BRAND = "ALAN"
 
 P = "http://schemas.openxmlformats.org/presentationml/2006/main"
 A = "http://schemas.openxmlformats.org/drawingml/2006/main"
@@ -137,13 +139,56 @@ def fill_title(slide, data):
 
 
 def fill_agenda(slide, data):
-    """data keys: sections (list of up to 5 strings)"""
-    sections = data.get('sections', [])
+    """data keys: sections (list of strings, any length)
+
+    Keeps only as many agenda rows as there are sections and redistributes
+    them evenly over the vertical area originally occupied by all 5 placeholders.
+    """
+    sections = [s for s in data.get('sections', []) if s]  # drop blanks
+    n = len(sections)
+
+    # Collect section-text shapes and number shapes keyed by their template index
+    sec_shapes = {}   # {1: sp, 2: sp, ...}
+    num_shapes = {}   # {1: sp, 2: sp, ...}
     for sp in _get_shapes(slide):
         txt = _sp_text(sp).strip()
         for i in range(1, 6):
             if txt.lower() == f'{{{{section {i}}}}}':
-                _sp_set_text(sp, sections[i - 1] if i - 1 < len(sections) else '')
+                sec_shapes[i] = sp
+            elif txt == f'{i}.':
+                num_shapes[i] = sp
+
+    # Determine the original vertical span (top of first → bottom of last)
+    ys = [int(sec_shapes[i].find(f'.//{{{A}}}off').get('y')) for i in sorted(sec_shapes)]
+    h = int(sec_shapes[1].find(f'.//{{{A}}}ext').get('cy')) if sec_shapes else 0
+    y_top = ys[0]
+    y_bot = ys[-1] + h          # bottom edge of last item
+    total = y_bot - y_top       # full distributable height
+
+    cSld = slide._element.find(f'{{{P}}}cSld')
+    spTree = cSld.find(f'{{{P}}}spTree')
+
+    # Remove shapes for unused slots
+    for i in range(1, 6):
+        if i > n:
+            if i in sec_shapes:
+                spTree.remove(sec_shapes[i])
+            if i in num_shapes:
+                spTree.remove(num_shapes[i])
+
+    # Redistribute kept shapes evenly
+    for idx, label in enumerate(sections):
+        i = idx + 1
+        if n == 1:
+            new_y = y_top + (total - h) // 2
+        else:
+            new_y = y_top + idx * (total - h) // (n - 1)
+        if i in sec_shapes:
+            _sp_set_text(sec_shapes[i], label)
+            sec_shapes[i].find(f'.//{{{A}}}off').set('y', str(new_y))
+        if i in num_shapes:
+            num_shapes[i].find(f'.//{{{A}}}off').set('y', str(new_y))
+
     _replace_brand(slide)
 
 
@@ -335,142 +380,12 @@ def build(slide_data, output=OUTPUT):
     print(f"Saved {len(prs.slides)} slides -> {output}")
 
 
-# ─── Sample data ─────────────────────────────────────────────────────
-
-slide_data = [
-    {
-        'type': 'title',
-        'title': 'ALAN(v):\nAutonomous Long Range\nNavigation Vessel',
-        'subtitle': 'Literature Review Presentation',
-    },
-    {
-        'type': 'agenda',
-        'sections': [
-            'Knowledge Base',
-            'Components',
-            'Research',
-            'Cost',
-            '',
-        ],
-    },
-    {
-        'type': 'abstract',
-        'description': (
-            'We want to build a fully autonomous sailboat capable of '
-            'traveling blue water environments for data collection and '
-            'environmental monitoring.\n\n'
-            'For this project we will build a semi-autonomous sailboat '
-            'that can be sent a series of waypoints and then travel '
-            'between them without any human intervention using standard '
-            'sailing mechanics.'
-        ),
-    },
-    {
-        'type': 'section',
-        'section': 'Knowledge Base',
-        'subsections': ['Boat Anatomy', 'Physics of Sailing', 'Boat Design'],
-    },
-    {
-        'type': 'paragraph',
-        'heading': 'Boat Anatomy',
-        'description': (
-            'Boats use 4 directions relative to the helm: fore (front), '
-            'aft (back), outboard (away from center), inboard (toward '
-            'center).\n\n'
-            'Key regions: bow (front), stern (rear), starboard (right), '
-            'port (left).\n\n'
-            'Critical parts: hull (body), keel (submerged plate for '
-            'lateral resistance), rudder (steering plate at stern), '
-            'mast (vertical structure for sails).'
-        ),
-    },
-    {
-        'type': 'paragraph',
-        'heading': 'Physics of Sailing',
-        'description': (
-            'Sailboats are driven by 2 opposing lift forces: sail lift '
-            '(perpendicular to sail) and keel lift (opposes lateral force, '
-            'pushes boat forward).\n\n'
-            'Point of sail and angle of attack must be optimized together. '
-            'The no-sail zone is \u00b190\u00b0 directly into the wind.'
-        ),
-    },
-    {
-        'type': 'paragraph',
-        'heading': 'Boat Design Trade-offs',
-        'description': (
-            'Hull types: displacement (round, slow, stable) vs. planing '
-            '(flat, fast, less stable).\n\n'
-            'Keel types: full keel vs. fin keel. Rudder balance and '
-            'sail material trade-offs also considered.'
-        ),
-    },
-    {
-        'type': 'section',
-        'section': 'Components',
-        'subsections': ['Mechanical', 'Electrical', 'Software'],
-    },
-    {
-        'type': 'paragraph',
-        'heading': 'Mechanical \u2014 Chosen Design',
-        'description': (
-            'Trimaran with displacement hull, self-trimming wingsail, '
-            'fin keel with bulb, and spade rudder.'
-        ),
-    },
-    {
-        'type': 'paragraph',
-        'heading': 'Electrical & Communications',
-        'description': (
-            '2 servos (sail + rudder), GPS, IMU, wind sensor, power '
-            'monitor, and LoRa wireless at 915 MHz.'
-        ),
-    },
-    {
-        'type': 'paragraph',
-        'heading': 'Software Architecture',
-        'description': (
-            'STM32H755ZIT6 dual-core dev board running FreeRTOS for '
-            'real-time sensor polling, control loops, and navigation.'
-        ),
-    },
-    {
-        'type': 'section',
-        'section': 'Research',
-        'subsections': ['Sources'],
-    },
-    {
-        'type': 'sources',
-        'sources': [
-            {'name': 'Saildrone', 'description': 'Commercial autonomous sailboat platform.', 'link': 'saildrone.com'},
-            {'name': 'Self-Trimming Wingsail', 'description': 'Pulley/cord control for wingsails.', 'link': ''},
-            {'name': 'Autonomous Sailboat Nav', 'description': 'Thesis on sailboat navigation algorithms.', 'link': ''},
-            {'name': 'Ship Rudder Parts', 'description': 'Rudder and keel sizing reference.', 'link': ''},
-        ],
-    },
-    {
-        'type': 'sources',
-        'sources': [
-            {'name': 'Keels vs. Daggerboards', 'description': 'Keel design comparison.', 'link': ''},
-            {'name': 'Elements of Yacht Design', 'description': 'Materials, rudders, sails, hull shape.', 'link': ''},
-            {'name': 'Sail Design Review', 'description': 'Autonomous sail design paper.', 'link': ''},
-        ],
-    },
-    {
-        'type': 'section',
-        'section': 'Cost',
-        'subsections': [],
-    },
-    {
-        'type': 'cost_analysis',
-        'columns': [
-            {'title': 'Total Costs', 'body': 'Estimated total: ~$1,000\n\n$400 \u2014 hull\n$200 \u2014 keel & rudder\n$200 \u2014 electrical\n$200 \u2014 contingency'},
-            {'title': 'Major Expenses', 'body': 'Resin: >$100\nHull mold: >$100\nKeel: expensive (316 SS)'},
-            {'title': 'Financing', 'body': 'On-campus sponsors\nOff-campus outreach\nUniversity staff PPE loans\nShared team bank account'},
-        ],
-    },
-]
-
-
 if __name__ == "__main__":
-    build(slide_data)
+    if len(sys.argv) < 2:
+        print(f"Usage: {sys.argv[0]} <slides.yaml> [output.pptx]")
+        sys.exit(1)
+    yaml_path = Path(sys.argv[1])
+    with open(yaml_path, encoding="utf-8") as f:
+        slide_data = yaml.safe_load(f)
+    out = Path(sys.argv[2]) if len(sys.argv) > 2 else OUTPUT
+    build(slide_data, output=out)

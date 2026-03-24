@@ -1,5 +1,5 @@
 - type: title
-  title: 'ALAN(v): Autonomous Long Range Navigation Vessel'
+  title: 'ALAN: Autonomous Long-Range Aquatic Navigation Vessel'
   subtitle: Corbin Barney, Charbel Salloum, Connor Stevens, Harrison LeTourneau, Jared Pratt
 
 - type: agenda
@@ -31,28 +31,28 @@
 - type: paragraph
   heading: Boat Anatomy - Directions & Regions
   description:
-  - Boats are divided into 4 directions, all of which are relative to the helm. The fore or forward is the direction moving towards the front of the ship. The aft is the direction moving towards the back. Outboard refers to moving away from the center line of the boat. Inboard refers to moving towards the centerline of the boat.
-  - 'The regions of the boat are also divided into 4 categories. There are more, but these are the big ones: bow is the front of the ship, stern is the rear of the ship, starboard is the right side of the ship, and port is the left side of the ship. This can be remembered because both left and port have 4 letters.'
+  - "Fore\nAft\nOutboard\nInboard"
+  - "Bow\nStern\nStarboard\nPort"
 
 - type: paragraph
   heading: Boat Anatomy - Parts
   description:
-  - 'On a sailing ship there are many parts that matter, but we will only mention the most relevant ones. The hull is the actual body of the boat. The keel is the large plate below the hull that is fully submerged in the water. The rudder is a small plate in the back of the ship used for steering. The mast is the vertical structure mounted on the hull to which sails are attached. '
+  - "Hull\nKeel\nRudder\nMast"
 
 - type: paragraph
   heading: Boat Anatomy - Self-Trimming Wingsail
   description:
-  - For our autonomous sailboat we chose to use a self-trimming wingsail. The wing sail or main sail is the largest part and provides the majority of the force used to move the boat on the water. The smaller sail behind it is called the tail or wind vein and is used to control the main sail's angle. In addition to these two main parts the self-trimming wingsail has a counter weight for the tail and a pivot around which it rotates.
+  - "Main sail\nTail (wind vein)\nCounterweight\nPivot"
 
 - type: paragraph
   heading: Boat Anatomy - Trimaran
   description:
-  - 'Additionally, we will be making a Trimaran-style sailing vessel. Trimarans are composed of 3 parts: a main body and 2 balancing bodies that are attached to the sides using long rods or arms. The main body is called a vaka and the balancing bodies are called amas.'
+  - "Vaka (main body)\nAmas (outriggers)\nArms (connecting rods)"
 
 - type: paragraph
   heading: Boat Anatomy - Freeboard & Draft
   description:
-  - Finally there are special terms used to refer to boats when they are in the water. Freeboard is the portion of the hull that is out of the water. Draft is the portion of the hull that is in the water.
+  - "Freeboard\nDraft"
 
 - type: subsection
   section: Physics of Sailing
@@ -65,22 +65,22 @@
 - type: paragraph
   heading: Physics of Sailing - Lift Forces
   description:
-  - Sail boats are built around 2 opposing forces, the lift force on the sail and the lift force on the keel. The wind blows at the boat and this creates a lift force perpendicular to the sail. This lifting force generally goes in a direction that is not directly forward, rather it is towards the port or starboard sides. This would cause the boat to move mostly sideways and a little forwards but the keel creates a second lifting force that points in the outboard direction opposite of the sail's lifting force. This cancels out the sideways lifting force of the sail and pushes the boat forward.
+  - "Two opposing lift forces drive a sailboat:\nSail lift\nKeel lift\nNet effect: boat moves forward"
 
 - type: paragraph
   heading: Physics of Sailing - Point of Sail
   description:
-  - "Because of this 2 force system, the angle of the boat relative to the wind (called point of sail) and the angle of the sail relative to the wind (called angle of attack) both matter immensely. To maximise the forward component of the lift force the angle of attack depends on the point of sail as shown in the diagram below. When sailing the point of sail can be any angle except between -45\xB0 and +45\xB0 relative to the wind. This 90\xB0 range is referred to as being in irons or simply the no sail zone, this is because the angle of attack cannot result in sufficient forward facing lift to move the boat in that direction."
+  - "Point of sail: boat's angle relative to the wind\nAngle of attack: sail's angle relative to the wind\nOptimal attack angle depends on point of sail\nNo-sail zone: \xB145\xB0 into the wind (90\xB0 total)"
 
 - type: paragraph
   heading: Physics of Sailing - Rudder Control
   description:
-  - The second control structure on the boat is the rudder. The rudder is attached to the back of the boat and provides a second wing to change the way the keel force interacts with the boat. If you turn the rudder such that it points towards the wind this will decrease the keel force causing the ship to turn out of the wind. If you turn the rudder such that it points away from the wind this will increase the keel force so that the ship turns into the wind.
+  - "Rudder modifies keel force interaction\nRudder toward wind \u2192 decreased keel force \u2192 turns away from wind\nRudder away from wind \u2192 increased keel force \u2192 turns into wind"
 
 - type: paragraph
   heading: Physics of Sailing - COE & CLR
   description:
-  - The point at which the lifting force of the sail occurs is called the center of effort, COE for short, and the point at which the lifting force of the keel occurs is called the center of lateral resistance or CLR. Designing the boat and sail rigging such that the COE is just aft of the CLR creates a slight weather helm. A weather helm means the boat wants to turn into the wind, which helps the boat remain stable under most conditions.
+  - "COE (Center of Effort): point where sail lift acts\nCLR (Center of Lateral Resistance): point where keel lift acts\nCOE slightly aft of CLR \u2192 weather helm\nWeather helm: boat naturally turns into wind, improving stability"
 
 - type: subsection
   section: Boat Design
@@ -94,31 +94,32 @@
 - type: paragraph
   heading: Boat Design - Hull Types
   description:
-  - There are 2 primary hull designs, displacement and plaining. Displacement hulls are larger and rounder, they function by displacing a large amount of water to create the buoyancy force necessary to keep the ship afloat, because of this they are slower but more stable. Plaining hulls are generally flat and shallow, they function by allowing the boat to glide across the surface of the water, because of this they are faster but less stable.
+  - "Displacement: slower but more stable\nPlaning: faster but less stable"
 
 - type: paragraph
   heading: Boat Design - Keel Types & Sub-forms
   description:
-  - Keels come in 2 major forms as well, fin and full keels. Full keels extend across the whole length of the hull and provide more stability and a much shallower draft but they have higher drag. Fin keels have a thin plate extending deep into the water, they are much more efficient then full keels but also have a much deeper draft.
-  - Keels can come in several sub-forms differentiated by their lowest point. The most common styles are squared off, rounded off, or bulb. Squared off is exactly what it sounds like, the bottom of the keel is squared off, this increases drag so usually boats go with the rounded off style instead. The other type is bulb, this involves having a large bulb shape at the bottom of the keel, this can increase stability and help move the center of mass down.
+  - "Full keel:\n  More stable\n  Shallow draft\n  Higher drag\nFin keel:\n  More efficient\n  Deeper draft"
+  - "Squared:\n  Higher drag\nRounded:\n  Lower drag\nBulb:\n  Adds stability\n  Lowers center of mass"
 
 - type: paragraph
   heading: Boat Design - Rudder Balance & Styles
   description:
-  - Rudders come in many forms defined by their balance. A fully balanced rudder is designed with a pivot that spins about its center of drag, this means it is very easy to turn but will not return to its home position if left alone. A fully unbalanced rudder is designed with a pivot as far forward on the rudder as possible, this means it is very difficult to turn but will immediately return to its home position if left alone.
-  - Additionally rudders can be either spade or skeg style. Spade rudders are free floating and only attached via the control rod, they are simpler to make but are more prone to damage. Skeg rudders are attached to the hull using a skeg, a fin-like structure that bolts onto the hull and wraps around the rudder's top and bottom pivot points.
+  - "Balanced:\n  Easy to turn\n  Won't self-center\nUnbalanced:\n  Hard to turn\n  Self-centers"
+  - "Spade:\n  Free-floating\n  Simple\n  More prone to damage\nSkeg:\n  Mounted to hull\n  More protected\n  More stable"
 
 - type: paragraph
   heading: Boat Design - Sail Materials
   description:
-  - Sails can be made from rigid material or cloth. Cloth sails are more traditional and much cheaper so they are generally used for private vessels, but they are also more prone to wear and tear. Rigid sails are made from plastic or metal and are much more durable, they are also more efficient at creating the lifting force. Because autonomous sail boats are smaller and more prone to damages, rigid sails are generally used over cloth ones.
+  - "Cloth:\n  Cheaper\n  Traditional\n  More wear and tear\nRigid (plastic/metal):\n  Durable\n  More efficient lift"
+  - "Autonomous boats favor rigid sails for durability"
 
 - type: paragraph
   heading: Boat Design - Wingsail Types
   description:
-  - First is the traditional wingsails, which include one rigid sail with a motor attached to the mast to rotate the entire mainsail. Because of this, the control complexity is low, but it requires a powerful motor due to the amount of force required to rotate and hold the entire mainsail at the optimal angle of attack towards the wind. As a result of the powerful motor required, the energy consumption is also high.
-  - The second control system is the flap wingsail. This includes one rigid mainsail and a rigid flap attached aft of it. A motor is used to rotate the flap to the optimal angle of attack. The force from the wind on the flap in turn rotates the main sail. Due to the motor not directly rotating the main sail, the control complexity is higher than that of the traditional wingsail. However, this also makes the power consumption less than that of the traditional wingsail.
-  - Finally, there is the self-trimming wingsail. The self-trimming wingsail utilizes a tail suspended aft the main sail by a long rod. The tail is roughly a third of the size of the main sail. The control system works by rotating the tail using a motor, the torque provided by the tail then rotates the mainsail with minimal effort. Due to the minimal amount of force required to rotate the tail, it consumes much less power than the other two control systems. However, because we can only rotate the main sail using torque from the tail, the control complexity is much higher. This is due to delayed sail rotation time, wind speed drastically affecting main sail rotation, and the indirect nature of the control.
+  - "Traditional: motor rotates entire mainsail\n  Low complexity\n  High power consumption"
+  - "Flap: motor rotates flap aft of mainsail\n  Moderate complexity\n  Moderate power"
+  - "Self-trimming: tail on long rod aft of mainsail provides torque to rotate\n  Lowest power\n  Highest complexity\n  Delayed response\n  Wind-dependent"
 
 - type: section
   section: Components
@@ -139,27 +140,27 @@
 - type: paragraph
   heading: Mechanical - Chosen Design
   description:
-  - We will build a trimaran sailboat with a draft hull, a self-trimming wingsail, a fin keel with a bulb, and a spade rudder.  We chose to build a trimaran with a draft hull because of the greater stability. The draft hull is naturally more stable and the amas of a trimaran provides a rebalancing buoyancy force when turning but remains out of the water when going straight, reducing overall drag while increasing stability. We chose a self-trimming wingsail because of its high efficiency. We chose a fin keel because of its manufacturability, we can manufacture the hull and keel separately then attach them later. We chose the bulb design because of the additional control it gives us over the weight and center of mass. We chose a spade rudder purely for its simplicity, the design makes it very easy to modify and fix if something goes wrong.
+  - "Trimaran + displacement hull:\n  Stability (amas rebalance when turning)\nSelf-trimming wingsail:\n  High efficiency\nFin keel with bulb:\n  Manufacturability + weight/CoM control\nSpade rudder:\n  Simplicity, easy to modify and repair"
 
 - type: paragraph
   heading: Mechanical - Hull Build
   description:
-  - The hull will be made using fiber glass sheets. We will do a wet lay of fiberglass and resin in a female mold. The mold will be created from 2 parts, a stern and bow portion that can be bolted together. The hull will be made from 7 sheets, this corresponds to about 1 mm of thickness once dry. The mounting point for the keel will be layered with extra sheets and a metal plate will be placed inside the mounting nipple and then covered in resin to further reinforce the keel mount. The rear face of the stern will also be layered with extra fiberglass for improved strength but the internal metal plate used for mounting will not be permanently attached via resin.
+  - "Fiberglass wet lay in 2-part female mold (bow + stern, bolted)\n7 sheets \u2248 1mm thickness\nKeel mount: extra layers + embedded metal plate + resin\nStern: extra fiberglass reinforcement, removable mounting plate"
 
 - type: paragraph
   heading: Mechanical - Keel Build
   description:
-  - The keel will be made of 3 portions, the frame, body, and weights. The frame will be welded together from 316 steel using a plate, square post and tube. 316 steel was chosen because of its high resistance to corrosion. The body of the keel will be made from 2 mirrored fins that clamp around the square post to give us the necessary amount of keel lift and the lift in the correct spot relative to the boat. The weight of the keel will be placed in the bulb, this portion of the frame is made from a hollow tube that can be filled with any cheap weight material, such as steel bird shot.
+  - "Frame: 316 steel (plate + square post + tube)\nBody: 2 mirrored fins clamped around square post\nBulb: hollow tube filled with steel bird shot for ballast"
 
 - type: paragraph
   heading: Mechanical - Rudder Build
   description:
-  - The rudder will be made from 2 portions, the rudder itself and a clamping mechanism for holding it in place. The rudder will be just a rod with a plate welded onto the end, all of it made from 316 steel. The clamp will consist of a fore and aft section. The fore section will be placed against the rear most wall of the boat's stern and the aft section will be placed over that. The clamping mechanism will be designed with spaces for the servo, bearings, rudder shaft, and shaft collars.
+  - "316 steel rod + welded plate\nFore/aft clamp mechanism\nBearing for free rotation\nServo-driven rotation via shaft collar"
 
 - type: paragraph
   heading: Mechanical - Sail Build
   description:
-  - The main sail will be made from a carved piece of foam covered in fiber glass. This will allow us to manufacture the over 1 meter sail while keeping its weight low. This same process will be mirrored for the tail. Furthermore, the sail will be mounted on a hollow carbon fiber rod that acts as the mast. The rod will be free to spin on a bearing, and power to the servo will be fed through the rod. This means that the servo will sit in a designated slot inside the rigid sail, keeping it safe from the water. The servo will hook onto a metal wire that will pull or push the tail around its axis of rotation. Lastly, the carbon fiber rods connecting the tail to the main sail will extend outwards in the direction opposite of the tail, adding counterweight to balance the sail setup.
+  - "Main sail + tail: carved foam core covered in fiberglass\nMast: hollow carbon fiber rod, free-spinning on bearing\nServo housed inside sail, wire-driven tail rotation"
 
 - type: subsection
   section: Electrical
@@ -171,18 +172,18 @@
 - type: paragraph
   heading: Electrical - Servos & Power
   description:
-  - For this boat to function mechanically, we will need at least 2 servos and a power distribution board. One servo will control the sail and one will control the rudder. The power distribution board will be used to connect our battery to all of our electronics. It will need to provide stepped-down voltages for every component so as not to fry them.
+  - "2 servos: one for sail, one for rudder\nPower distribution board: battery \u2192 stepped-down voltages for all components"
 
 - type: paragraph
   heading: Electrical - Sensors
   description:
-  - For the boat to function autonomously it will need many sensors including an IMU, magnetometer, wind sensor, GPS, and a power monitor. The GPS will be used for onboard navigation between waypoints set by an operator. The magnetometer and IMU will be used for spatial orientation to ensure correct navigation. The wind sensor will be used to control the orientation of the sail to maximize the boat's motion. The power monitor will monitor the state of the battery. For our project, this sensor is mostly for show but in a real-world scenario, it would be necessary to keep the boat from going fully dead.
+  - "GPS: waypoint navigation\nIMU + magnetometer: spatial orientation\nWind sensor: sail angle optimization\nPower monitor: battery state tracking"
 
 - type: paragraph
   heading: Electrical - Communications
   description:
-  - 'For the boat to communicate with the operator, it will need an RF antenna. Because we expect line-of-sight communication with an elevated ground station and we want to emphasize low power operation, we have decided to implement LoRa wireless protocol. LoRa, as opposed to other potential protocols like WiFi or Bluetooth, is simple in that it operates with a much lower bandwidth and at much slower speeds. Our use case involves two situations. Sending serial byte data from the onboard STM32 to view servo position, sensor readings, battery status, gps position, etc. Sending serial byte data from the ground station to control the boat manually or update the route planning.'
-  - These processes are low bandwidth and will not exceed the maximum packet speed and packet size that LoRa allows us. The protocol operates in the unlicensed ISM bands, most commonly 915 MHz in North America and 868 MHz in Europe. At these sub-GHz frequencies, the signal achieves significantly greater range than 2.4 GHz protocols like WiFi or Bluetooth. This is because lower frequencies experience less free-space path loss and diffract more readily around obstacles.
+  - "LoRa wireless @ 915 MHz (ISM band, North America)\nLow bandwidth, sub-GHz \u2192 greater range than WiFi/Bluetooth\nLess free-space path loss, better diffraction around obstacles"
+  - "Uplink: servo position, sensor readings, battery, GPS\nDownlink: manual control or route updates"
 
 - type: subsection
   section: Software
@@ -191,46 +192,45 @@
 - type: paragraph
   heading: Software
   description:
-  - The boat will be controlled by an STM32H755ZIT6 Dev Board. This board will run on a real-time operating system (RTOS) that pulls data from the sensors and input from the operator to adjust the ship's heading and route as it travels. It will require GPS navigation packages, STM32 HAL drivers, and the FreeRTOS system in addition to all standard C capabilities to function.
+  - "STM32H755ZIT6 dual-core dev board\nFreeRTOS:\n  Real-time sensor polling\n  Control loops\nGPS navigation packages\nSTM32 HAL drivers\nC-based firmware"
 
 - type: section
-  section: Research
+  section: Costs
   subsections: []
+
+- type: cost_analysis
+  columns:
+  - title: Total Costs
+    body: "Estimated total: ~$1,000\n$400 \u2014 Hull materials\n$200 \u2014 Keel and rudder materials\n$200 \u2014 Electrical components\n$200 \u2014 Contingency"
+  - title: Major Expenses
+    body: "Resin: >$100\nHull mold: >$100 to print + >$100 filament + Fiberglass and resin\nKeel: majority is 316 steel"
+  - title: Financing
+    body: "On-campus sponsors (e.g. 3D print filament)\nOff-campus outreach (fiberglass, carbon fiber)\nUniversity staff PPE loans\nShared team bank account for remaining costs"
 
 - type: sources
   sources:
   - name: Autonomous Sailboat Navigation
     description: 'This is a comprehensive thesis on autonomous sailboats. '
-    link: https://files01.core.ac.uk/download/pdf/228200594.pdf?utm_source=chatgpt.com
+    link: 'R. Stekzer, “Autonomous Sailboat Navigation,” Pdf, Center for Computational Intelligence De Montfort University, Leicester, 2012. Available: https://files01.core.ac.uk/download/pdf/228200594.pdf'
   - name: Elements of Yacht Design
     description: 'This is an in-depth book about everything that goes into building a boat, from materials to rudders, to sails, to hull shape. '
-    link: 'https://www.woodenboatstore.com/products/elements-of-yacht-design '
+    link: 'N. L. Skene, Elements of Yacht Design. Dobbs Ferry, Ny: Sheridan House, 2001.'
   - name: Keels or Daggerboards, the pros and cons
     description: 'A comprehensive article about different keel designs and sizes. This article focuses on racing vessels over endurance vessels like ours so we only used certain parts of its information. '
-    link: https://www.sailingcatamarans.com/index.php/articles/12-to-be-published-mainly-technical/53-keels-or-daggerboards-the-pros-and-cons
+    link:  “Keels or Daggerboards, the pros and cons,” Sailingcatamarans.com. https://www.sailingcatamarans.com/index.php/articles/12-to-be-published-mainly-technical/53-keels-or-daggerboards-the-pros-and-cons
   - name: Sail Design for Autonomous Sailboats
     description: |-
       This is an in-depth paper/literature review that covers sail designs for autonomous vessels, which includes shape, size, placement, control, and more.
-      Development of autonomous sailboat sails and future perspectives: A review - ScienceDirect
-    link: ''
+    link: 'Z. Sun, A. Feng, J. Yu, W. Zhao, and Y. Huang, “Development of autonomous sailboat sails and future perspectives: A review,” Renewable and Sustainable Energy Reviews, vol. 207, no. 114918, Sep. 2024, doi: https://doi.org/10.1016/j.rser.2024.114918.'
 
 - type: sources
   sources:
   - name: Saildrone
     description: 'Saildrone is a company currently building autonomous sailboats for commercial and governmental use. We used their design as a starting inspiration for our own. '
-    link: https://www.saildrone.com/
+    link: 'Saildrone. https://www.saildrone.com/'
   - name: Self-trimming wingsail - the pulley/cord control system
     description: This is an article about the specific kind of autonomous sail called a self-trimming wingsail.
-    link: https://www.sailwings.net/pulleycord.html?utm_source=chatgpt.com
+    link: '“Self Trimming Wingsail - the pulley/cord Control system,” Sailwings.net, 2026. https://www.sailwings.net/pulleycord.html'
   - name: Ship Rudder
     description: 'Simple article about the size and shapes of rudders and keels for common boats. It also includes most of the napkin math that both must satisfy to control the boat effectively. '
-    link: https://noah-marineservices.com/ship-rudder-parts-marine-parts/
-
-- type: cost_analysis
-  columns:
-  - title: Total Costs
-    body: "It's pretty hard to predict the exact cost of our project now, as it is we know the price of most components, but could still end up with a huge cost swing from development. As a rough estimate, we expect the total to be around $1000: $400 for hull materials, $200 for keel and rudder materials, $200 for electrical components, and $200 in unexpected costs."
-  - title: Major Expenses
-    body: The most expensive single item is resin. The resin used to make the hull will cost over $100 on its own. The most expensive single component is also the hull. The mold for the hull will cost over $100 to print plus over $100 for 3D print filament on top of the cost of fiberglass and resin. The next most expensive part is the keel, this is because the majority of the keel has to be made from 316 steel.
-  - title: Financing
-    body: Many of these parts can be sponsored by on-campus groups, such as 3D print filament. We plan to contact various off-campus groups as well for less available goods, such as fiber glass and carbon fiber. Some reusable equipment will be purchased and loaned to us by staff at the university, such as breathing masks and other PPE. However, this will still leave us with significant amounts of equipment, parts, and materials that we will need to purchase. For any items that we need to purchase ourselves we will open a shared bank account and use a shared debit card. One of the team members says he has a coupon for a new member bonus cash at Chase Bank, so we might use that as well.
+    link: '“Ship Rudder,” Noah Marine Services. https://noah-marineservices.com/ship-rudder-parts-marine-parts/'
