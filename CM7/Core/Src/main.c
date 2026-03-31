@@ -3,7 +3,12 @@
 #include "main.h"
 #include "FreeRTOS.h"
 #include "cmsis_os2.h"
+#include "stm32h7xx_hal_conf.h"
+#include "stm32h7xx_hal_gpio.h"
+#include "stm32h7xx_hal_rcc.h"
 #include <stdint.h>
+
+#include "simple_led.h"
 
 /* Private includes ----------------------------------------------------------*/
 
@@ -41,6 +46,8 @@ __IO uint32_t BspButtonState = BUTTON_RELEASED;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 void StartDefaultTask(void *argument);
+void hardware_init(void);
+void rtos_init(void);
 
 /* Private user code ---------------------------------------------------------*/
 
@@ -174,8 +181,30 @@ void assert_failed(uint8_t *file, uint32_t line)
 void hardware_init(void)
 {
   HAL_Init();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  // green led : PB0
+  // red led : PB14
+  // user button : PC13
 
   /* USER CODE BEGIN Init */
+
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_14;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = GPIO_PIN_13;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 15, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+
   /* USER CODE END Init */
 
   SystemClock_Config();
@@ -217,7 +246,7 @@ void rtos_init()
   // ...
 
   /* RTOS_SEMAPHORES */
-  // ...
+  button_semaphore = xSemaphoreCreateBinary();
 
   /* RTOS_TIMERS */
   // ..

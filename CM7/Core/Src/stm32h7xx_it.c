@@ -22,6 +22,7 @@
 #include "stm32h7xx_it.h"
 #include "FreeRTOS.h"
 #include "task.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -57,10 +58,7 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-
-/* USER CODE BEGIN EV */
-
-/* USER CODE END EV */
+//...
 
 /******************************************************************************/
 /*           Cortex Processor Interruption and Exception Handlers          */
@@ -182,20 +180,24 @@ void SysTick_Handler(void)
 /* please refer to the startup file (startup_stm32h7xx.s).                    */
 /******************************************************************************/
 
-/**
-  * @brief This function handles EXTI line[15:10] interrupts.
-  */
 void EXTI15_10_IRQHandler(void)
 {
-  /* USER CODE BEGIN EXTI15_10_IRQn 0 */
-
-  /* USER CODE END EXTI15_10_IRQn 0 */
-  BSP_PB_IRQHandler(BUTTON_USER);
-  /* USER CODE BEGIN EXTI15_10_IRQn 1 */
-
-  /* USER CODE END EXTI15_10_IRQn 1 */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_13);
 }
 
-/* USER CODE BEGIN 1 */
 
-/* USER CODE END 1 */
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  if (GPIO_Pin == GPIO_PIN_13)
+  {
+    if (usr_button_state == 0)
+    {
+      usr_button_state = 1;
+    }
+    else
+    {
+      usr_button_state = 0;
+    }
+  }
+}
