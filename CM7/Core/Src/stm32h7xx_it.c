@@ -21,11 +21,12 @@
 #include "main.h"
 #include "stm32h7xx_it.h"
 #include "FreeRTOS.h"
-#include "task.h"
+#include "projdefs.h"
+#include "stm32h7xx_hal_gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-/* USER CODE END Includes */
+
+//...
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN TD */
@@ -191,13 +192,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if (GPIO_Pin == GPIO_PIN_13)
   {
-    if (usr_button_state == 0)
-    {
-      usr_button_state = 1;
-    }
-    else
-    {
-      usr_button_state = 0;
-    }
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_1);
+    xSemaphoreGiveFromISR(semphr_button, &xHigherPriorityTaskWoken);
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
   }
 }

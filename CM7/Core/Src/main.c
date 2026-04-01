@@ -1,14 +1,12 @@
 /* Includes ------------------------------------------------------------------*/
 
 #include "main.h"
-#include "FreeRTOS.h"
 #include "cmsis_os2.h"
+#include "portmacro.h"
 #include "stm32h7xx_hal_conf.h"
 #include "stm32h7xx_hal_gpio.h"
 #include "stm32h7xx_hal_rcc.h"
 #include <stdint.h>
-
-#include "simple_led.h"
 
 /* Private includes ----------------------------------------------------------*/
 
@@ -39,15 +37,19 @@
 /* Private variables ---------------------------------------------------------*/
 
 COM_InitTypeDef BspCOMInit;
-__IO uint32_t BspButtonState = BUTTON_RELEASED;
+
+TaskHandle_t task_default;
+TaskHandle_t task_button;
+
+SemaphoreHandle_t semphr_button;
 
 /* Private function prototypes -----------------------------------------------*/
 
 void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-void StartDefaultTask(void *argument);
 void hardware_init(void);
 void rtos_init(void);
+void task_defaultHandler(void *argument);
+void task_buttonHandler(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 
@@ -70,11 +72,7 @@ int main(void)
   // 6) Start the RTOS scheduler.
 
   #if defined(DUAL_CORE_BOOT_SYNC_SEQUENCE)
-    int32_t timeout;
-  #endif
-
-  #if defined(DUAL_CORE_BOOT_SYNC_SEQUENCE)
-    timeout = 0xFFFF;
+    uint16_t timeout = 0xFFFF;
     while((__HAL_RCC_GET_FLAG(RCC_FLAG_D2CKRDY) != RESET) && (timeout-- > 0));
     if ( timeout < 0 ) { Error_Handler(); }
   #endif
@@ -183,19 +181,19 @@ void hardware_init(void)
   HAL_Init();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
-  // green led : PB0
-  // red led : PB14
-  // user button : PC13
+  __HAL_RCC_GPIOE_CLK_ENABLE();
 
   /* USER CODE BEGIN Init */
 
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_14;
+  GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_14;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   GPIO_InitStruct.Pin = GPIO_PIN_13;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
@@ -213,7 +211,7 @@ void hardware_init(void)
     __HAL_RCC_HSEM_CLK_ENABLE();
     HAL_HSEM_FastTake(HSEM_ID_0);
     HAL_HSEM_Release(HSEM_ID_0,0);
-    timeout = 0xFFFF;
+    uint16_t timeout = 0xFFFF;
     while((__HAL_RCC_GET_FLAG(RCC_FLAG_D2CKRDY) == RESET) && (timeout-- > 0));
     if ( timeout < 0 ) { Error_Handler(); }
   #endif
@@ -246,7 +244,8 @@ void rtos_init()
   // ...
 
   /* RTOS_SEMAPHORES */
-  button_semaphore = xSemaphoreCreateBinary();
+  semphr_button = xSemaphoreCreateBinary();
+  if (semphr_button == NULL) { Error_Handler(); }
 
   /* RTOS_TIMERS */
   // ..
@@ -255,8 +254,34 @@ void rtos_init()
   // ...
 
   /* RTOS_THREADS */
-  // ...
+  if (xTaskCreate(task_defaultHandler, "DefaultTask", 128, NULL, osPriorityNormal, &task_default) != pdPASS) { Error_Handler(); }
+  if (xTaskCreate(task_buttonHandler, "ButtonTask", 128, NULL, osPriorityAboveNormal, &task_button)    != pdPASS) { Error_Handler(); }
 
   /* RTOS_EVENTS */
   // ...
+}
+
+/**
+  * Toggle the green LED every second.
+  */
+void task_defaultHandler(void *argument)
+{
+  for(;;)
+  {
+    vTaskDelay(500 * portTICK_PERIOD_MS);
+    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
+  }
+}
+
+void task_buttonHandler(void *argument)
+{
+  for(;;)
+  {
+    if (xSemaphoreTake(semphr_button, portMAX_DELAY) == pdTRUE)
+    {
+      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET); 
+      vTaskDelay(1000 * portTICK_PERIOD_MS);
+      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
+    }
+  }
 }
