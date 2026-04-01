@@ -10,6 +10,7 @@
 ### Antenna Team
 
 * Harrison LeTourneau (u1460207)
+* Adam Welsh (u1456456)
 
 ## SCRIPTS
 
