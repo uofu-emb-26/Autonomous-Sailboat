@@ -32,10 +32,13 @@ extern "C" {
 #include "stm32h7xx_nucleo.h"
 #include <stdio.h>
 
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
 
-/* USER CODE END Includes */
+/* Private includes ----------------------------------------------------------*/
+
+//...
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
@@ -43,9 +46,8 @@ extern "C" {
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
-/* USER CODE BEGIN EC */
 
-/* USER CODE END EC */
+extern SemaphoreHandle_t semphr_button;
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
