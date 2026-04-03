@@ -7,7 +7,7 @@
 #include "stm32h7xx_hal_gpio.h"
 #include "stm32h7xx_hal_rcc.h"
 #include <stdint.h>
-
+//#include servo.c
 /* Private includes ----------------------------------------------------------*/
 
 //...
@@ -41,6 +41,8 @@ COM_InitTypeDef BspCOMInit;
 TaskHandle_t task_button;
 
 SemaphoreHandle_t semphr_button;
+
+TIM_HandleTypeDef servo_tim1;
 
 /* Private function prototypes -----------------------------------------------*/
 
@@ -268,4 +270,60 @@ void task_buttonHandler(void *argument)
       HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
     }
   }
+}
+
+void task_PWM_SERVO(void *argument)
+{
+  //   // 20ms = 2000 ticks at 1mhz
+  //   // 0.5 ms pulse is right
+  //   // 1.5 ms pulse is center (slightly off kilter by 30 degeres)
+  //   // 2.5 ms pulse is fully left
+  //   // Servo has a period of 2ms 
+  //   // and the duty cycle is between 0.5 and 2.5ms
+  //   // Every 20 ms (50hz) we send pulse
+  //   // .5 translates to 500 ticks
+  // __HAL_RCC_GPIOE_CLK_ENABLE(); <- Alternate function for TIM_1CH (pg 94 of datasheet)
+  __HAL_RCC_TIM1_CLK_ENABLE();
+  initServo();
+  // So the timer will run at 240 mhz (according to page 42 of datasheet)
+  // 240mhz/ 239 + 1 prescaler = 1mhz. (we slowed it down). 1 microsecond tick
+  __HAL_TIM_SET_PRESCALER(&servo_tim1, 239);
+  // 1mhz * 20 = 20ms, we 
+  __HAL_TIM_SET_AUTORELOAD(&servo_tim1, 19999); // arr=20_000 basically
+  HAL_TIM_PWM_Start(&servo_tim1, TIM_CHANNEL_1);
+  for(;;)
+  {
+    turnLeft90();
+    center();
+    turnLeft90();
+  }
+}
+
+void turnRight90(void)
+{
+__HAL_TIM_SET_COMPARE(&servo_tim1,TIM_CHANNEL_1,0500);
+}
+
+
+void turnLeft90(void)
+{
+__HAL_TIM_SET_COMPARE(&servo_tim1,TIM_CHANNEL_1,2500);
+}
+
+// This isn't fully centered, we will have to experiment
+void center(void)
+{
+__HAL_TIM_SET_COMPARE(&servo_tim1,TIM_CHANNEL_1,1500);
+}
+
+void initServo(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  //__HAL_RCC_GPIOE_CLK_ENABLE(); //Already initialized in hardware init
+  GPIO_InitStruct.Pin = GPIO_PIN_9;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull =  GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF1_TIM1;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 }
