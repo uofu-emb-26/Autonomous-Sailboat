@@ -24,6 +24,8 @@
 #include "projdefs.h"
 #include "stm32h7xx_hal_gpio.h"
 
+#include "button.h"
+
 /* Private includes ----------------------------------------------------------*/
 
 //...

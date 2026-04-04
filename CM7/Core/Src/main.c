@@ -7,7 +7,9 @@
 #include "stm32h7xx_hal_gpio.h"
 #include "stm32h7xx_hal_rcc.h"
 #include <stdint.h>
-//#include servo.c
+#include "button.h"
+#include "servoSail.h"
+
 /* Private includes ----------------------------------------------------------*/
 
 //...
@@ -38,19 +40,11 @@
 
 COM_InitTypeDef BspCOMInit;
 
-TaskHandle_t task_button;
-
-SemaphoreHandle_t semphr_button;
-
-TIM_HandleTypeDef servo_tim1;
-
 /* Private function prototypes -----------------------------------------------*/
 
 void SystemClock_Config(void);
 void hardware_init(void);
 void rtos_init(void);
-void task_defaultHandler(void *argument);
-void task_buttonHandler(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 
@@ -79,9 +73,7 @@ int main(void)
   #endif
 
   hardware_init();
-
   rtos_init();
-
   vTaskStartScheduler();
 }
 
@@ -183,27 +175,8 @@ void hardware_init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
-  __HAL_RCC_USART3_CLK_ENABLE();
-
-  /* USER CODE BEGIN Init */
-
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-  GPIO_InitStruct.Pin = GPIO_PIN_14;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  GPIO_InitStruct.Pin = GPIO_PIN_13;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 15, 0);
-  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
-
-  /* USER CODE END Init */
+  __HAL_RCC_TIM1_CLK_ENABLE();
+  // __HAL_RCC_USART3_CLK_ENABLE();
 
   SystemClock_Config();
 
@@ -217,6 +190,8 @@ void hardware_init(void)
   #endif
 
   /* USER CODE BEGIN SysInit */
+  button_hardwareInit();
+  servoSail_hardwareInit();
   /* USER CODE END SysInit */
 
   /* USER CODE BEGIN 2 */
@@ -240,120 +215,6 @@ void hardware_init(void)
   */
 void rtos_init()
 {
-  /* RTOS_MUTEX */
-  // ...
-
-  /* RTOS_SEMAPHORES */
-  semphr_button = xSemaphoreCreateBinary();
-  if (semphr_button == NULL) { Error_Handler(); }
-
-  /* RTOS_TIMERS */
-  // ..
-
-  /* RTOS_QUEUES */
-  // ...
-
-  /* RTOS_THREADS */
-  if (xTaskCreate(task_buttonHandler, "ButtonTask", 128, NULL, osPriorityAboveNormal, &task_button)    != pdPASS) { Error_Handler(); }
-
-  /* RTOS_EVENTS */
-  // ...
-}
-
-void task_buttonHandler(void *argument)
-{
-  for(;;)
-  {
-    if (xSemaphoreTake(semphr_button, portMAX_DELAY) == pdTRUE)
-    {
-      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET); 
-      vTaskDelay(1000 * portTICK_PERIOD_MS);
-      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
-    }
-  }
-}
-
-void task_PWM_SERVO(void *argument)
-{
-  //   // 20ms = 2000 ticks at 1mhz
-  //   // 0.5 ms pulse is right
-  //   // 1.5 ms pulse is center (slightly off kilter by 30 degeres)
-  //   // 2.5 ms pulse is fully left
-  //   // Servo has a period of 2ms 
-  //   // and the duty cycle is between 0.5 and 2.5ms
-  //   // Every 20 ms (50hz) we send pulse
-  //   // .5 translates to 500 ticks
-  // __HAL_RCC_GPIOE_CLK_ENABLE(); <- Alternate function for TIM_1CH (pg 94 of datasheet)
-  __HAL_RCC_TIM1_CLK_ENABLE();
-  initServo();
-  // So the timer will run at 240 mhz (according to page 42 of datasheet)
-  // 240mhz/ 239 + 1 prescaler = 1mhz. (we slowed it down). 1 microsecond tick
-  __HAL_TIM_SET_PRESCALER(&servo_tim1, 239);
-  // 1mhz * 20 = 20ms, we 
-  __HAL_TIM_SET_AUTORELOAD(&servo_tim1, 19999); // arr=20_000 basically
-  HAL_TIM_PWM_Start(&servo_tim1, TIM_CHANNEL_1);
-  for(;;)
-  {
-    turnLeft90();
-    center();
-    turnLeft90();
-  }
-}
-
-void turnRight90(void)
-{
-__HAL_TIM_SET_COMPARE(&servo_tim1,TIM_CHANNEL_1,0500);
-}
-
-
-void turnLeft90(void)
-{
-__HAL_TIM_SET_COMPARE(&servo_tim1,TIM_CHANNEL_1,2500);
-}
-
-// This isn't fully centered, we will have to experiment
-void center(void)
-{
-__HAL_TIM_SET_COMPARE(&servo_tim1,TIM_CHANNEL_1,1500);
-}
-
-void  initServo(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  //__HAL_RCC_GPIOE_CLK_ENABLE(); //Already initialized in hardware init
-  GPIO_InitStruct.Pin = GPIO_PIN_9;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull =  GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF1_TIM1;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
-}
-
-void init_USART3(void) {
-  // Setting up PB10 (USART3_TX)
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  GPIO_InitStruct.Pin = GPIO_PIN_10;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull =  GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF7_USART3; // have to change bit mask if not right
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  //Changing to PB11 (USART3_RX)
-  GPIO_InitStruct.Pin = GPIO_PIN_11; 
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  //Setting USART setting
-  UART_InitTypeDef UART_InitStruct = {0};
-  UART_InitStruct.BaudRate = 96000;
-  UART_InitStruct.WordLength = UART_WORDLENGTH_8B;
-  UART_InitStruct.StopBits = UART_STOPBITS_1;
-  UART_InitStruct.Parity = UART_PARITY_NONE;
-  UART_InitStruct.Mode = UART_MODE_TX_RX;
-
-  UART_HandleTypeDef UART3_Handler = {0};
-  UART3_Handler.Init = UART_InitStruct;
-  UART3_Handler.Instance = USART3_BASE;
-
-  HAL_USART_Init(&UART3_Handler);
+  button_rtosInit();
+  servoSail_rtosInit();
 }

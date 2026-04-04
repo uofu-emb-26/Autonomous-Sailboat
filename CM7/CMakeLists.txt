@@ -60,10 +60,12 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/include
 )
 
-# Add sources to executable
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user sources here
-)
+# Auto-collect user sources, excluding files already added by mx-generated.cmake
+file(GLOB USER_SOURCES CONFIGURE_DEPENDS "Core/Src/*.c")
+list(FILTER USER_SOURCES EXCLUDE REGEX
+    ".*(main|freertos|stm32h7xx_it|stm32h7xx_hal_msp|sysmem|syscalls)\\.c$")
+
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${USER_SOURCES})
 
 # Link directories setup
 target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE

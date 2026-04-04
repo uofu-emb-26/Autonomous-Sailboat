@@ -47,8 +47,6 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 
-extern SemaphoreHandle_t semphr_button;
-
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
 
