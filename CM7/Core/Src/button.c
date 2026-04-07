@@ -66,6 +66,7 @@ void button_handler(void *argument)
   {
     if (xSemaphoreTake(semphr_button, portMAX_DELAY) == pdTRUE)
     {
+      printf("Button pressed!\r\n");
       HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET); 
       vTaskDelay(1000 * portTICK_PERIOD_MS);
       HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
