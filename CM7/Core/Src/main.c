@@ -176,7 +176,7 @@ void hardware_init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_TIM1_CLK_ENABLE();
-  // __HAL_RCC_USART3_CLK_ENABLE();
+  __HAL_RCC_UART4_CLK_ENABLE();
 
   SystemClock_Config();
 
@@ -192,6 +192,7 @@ void hardware_init(void)
   /* USER CODE BEGIN SysInit */
   button_hardwareInit();
   servoSail_hardwareInit();
+  sensorWind_hardwareInit();
   /* USER CODE END SysInit */
 
   /* USER CODE BEGIN 2 */
@@ -217,4 +218,5 @@ void rtos_init()
 {
   button_rtosInit();
   servoSail_rtosInit();
+  sensorWind_rtosInit();
 }
