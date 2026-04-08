@@ -77,4 +77,45 @@ void HAL_MspInit(void)
 
 /* USER CODE BEGIN 1 */
 
+void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi)
+{
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+    if (hspi->Instance == SPI1)
+    {
+      __HAL_RCC_SPI1_CLK_ENABLE();
+      __HAL_RCC_GPIOA_CLK_ENABLE();
+      __HAL_RCC_GPIOD_CLK_ENABLE();
+
+      /* PA5=SCK, PA6=MISO */
+      __HAL_RCC_GPIOA_CLK_ENABLE();
+      GPIO_InitStruct.Pin       = GPIO_PIN_5 | GPIO_PIN_6;  // We cant set mosi here because it uses PB5 ie GPIOB, do it in next HAL_GPIO_Init call
+      GPIO_InitStruct.Mode      = GPIO_MODE_AF_PP;
+      GPIO_InitStruct.Pull      = GPIO_NOPULL;
+      GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_MEDIUM;
+      GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
+      HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+      /* PB5=MOSI */
+      __HAL_RCC_GPIOB_CLK_ENABLE();
+      GPIO_InitStruct.Pin       = GPIO_PIN_5;
+      GPIO_InitStruct.Mode      = GPIO_MODE_AF_PP;
+      GPIO_InitStruct.Pull      = GPIO_NOPULL;
+      GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_MEDIUM;
+      GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
+      HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+      /* PD14=CS, software-controlled meaning not by the SPI hardware, we change it in code */
+      GPIO_InitStruct.Pin       = GPIO_PIN_14;
+      GPIO_InitStruct.Mode      = GPIO_MODE_OUTPUT_PP;
+      GPIO_InitStruct.Pull      = GPIO_NOPULL;
+      GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_MEDIUM;
+      GPIO_InitStruct.Alternate = 0;
+      HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+      /* CS idle high */
+      HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
+    }
+}
+
 /* USER CODE END 1 */
