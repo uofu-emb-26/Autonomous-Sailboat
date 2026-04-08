@@ -115,6 +115,17 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi)
 
       /* CS idle high */
       HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
+
+      /* PD15 = RESET, output */
+      GPIO_InitStruct.Pin       = GPIO_PIN_15;
+      GPIO_InitStruct.Mode      = GPIO_MODE_OUTPUT_PP;
+      GPIO_InitStruct.Pull      = GPIO_NOPULL;
+      GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_MEDIUM;
+      GPIO_InitStruct.Alternate = 0;
+      HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+      /* RESET idle high */
+      HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_SET);
     }
 }
 

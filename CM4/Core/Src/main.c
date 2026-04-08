@@ -142,14 +142,6 @@ int main(void)
       .battery    = 95,
   };
 
-  while (1)
-  {
-      LoRa_Send((uint8_t *)&pkt, sizeof(pkt));
-      HAL_Delay(1000);
-  }
-
-
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -158,6 +150,10 @@ int main(void)
   {
     /* USER CODE END WHILE */
 
+    LoRa_Send((uint8_t *)&pkt, sizeof(pkt));
+    HAL_Delay(1000);
+
+    
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
