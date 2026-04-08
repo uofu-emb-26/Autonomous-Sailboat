@@ -238,6 +238,12 @@
 #define REG_NB_RX_BYTES          0x1D
 #define REG_RX_HEADER_INFO       0x1E
 #define REG_RX_DATA_ADDR         0x26
+#define REG_IRQ_FLAGS            0x10
+#define REG_TX_CFG               0x16
+#define REG_PAYLOAD_LENGTH       0x17
+#define REG_NB_RX_BYTES          0x1D
+#define REG_RX_HEADER_INFO       0x1E
+#define REG_RX_DATA_ADDR         0x26
 #define REG_VERSION              0x42
 
 /* Helper functions */
