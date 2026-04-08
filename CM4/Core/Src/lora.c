@@ -2,16 +2,16 @@
  * lora.c - LoRa Telemetry Driver for RFM95W on STM32H7 M4 Core
  *
  * HARDWARE SETUP
- * -----------------------------------------------------------------------------
+ * 
  * RFM95W connected to M4 core via SPI1
  * DIO0 pin connected to a free GPIO configured as EXTI (external interrupt)
  * CS pin managed manually in software (HAL does not auto-manage CS)
  *
  * Pin connections needed:
- *   RFM95W MOSI  -> SPI1 MOSI
- *   RFM95W MISO  -> SPI1 MISO
- *   RFM95W SCK   -> SPI1 SCK
- *   RFM95W NSS   -> GPIO output (CS, defined as LORA_CS_PIN)
+ *   RFM95W MOSI  -> SPI1 MOSI  PB5
+ *   RFM95W MISO  -> SPI1 MISO  PA6
+ *   RFM95W SCK   -> SPI1 SCK   PA5
+ *   RFM95W NSS   -> GPIO output (CS, defined as LORA_CS_PIN)   PD14
  *   RFM95W DIO0  -> GPIO EXTI input (defined as LORA_DIO0_PIN)
  *   RFM95W RESET -> GPIO output (optional but recommended)
  *
@@ -118,7 +118,7 @@
  * -----------------------------------------------------------------------------
  * The following steps must be performed in order on startup:
  *
- *   1. Reset the RFM95W (pull RESET low for 100us, then high, wait 5ms)
+ *   1. Reset the RFM95W (pull RESET low for x  , then high, wait 5ms)
  *   2. Verify chip by reading RegVersion (addr 0x42), expect 0x12
  *   3. Put chip in SLEEP mode (RegOpMode = 0x00) - registers can only be
  *      written in Sleep or Standby mode
@@ -205,4 +205,36 @@
  *   hear each other
  *
  * =============================================================================
+ * 
+ * 
+ * VERY BASIC IMPLEMENTATION TO START
+ * 
+    1. Reset the RFM95
+    2. Verify it's alive (read version register, expect 0x12)
+    3. Put it in Sleep mode
+    4. Enable LoRa mode
+    5. Configure registers (frequency, SF, BW, CR, power)
+    6. Put it in Standby
+    7. Load data into FIFO
+    8. Fire TX
+    9. Poll until TX done
+    10. Repeat
  */
+
+
+ /* ─── Register addresses ─────────────────────────────────────────── */
+#define REG_FIFO                 0x00
+#define REG_OP_MODE              0x01
+#define REG_FRF_MSB              0x06
+#define REG_FRF_MID              0x07
+#define REG_FRF_LSB              0x08
+#define REG_PA_CONFIG            0x09
+#define REG_FIFO_ADDR_PTR        0x0D
+#define REG_FIFO_TX_BASE_ADDR    0x0E
+#define REG_FIFO_RX_BASE_ADDR    0x0F
+#define REG_IRQ_FLAGS            0x12
+#define REG_PAYLOAD_LENGTH       0x22
+#define REG_MODEM_CONFIG_1       0x1D
+#define REG_MODEM_CONFIG_2       0x1E
+#define REG_MODEM_CONFIG_3       0x26
+#define REG_VERSION              0x42
