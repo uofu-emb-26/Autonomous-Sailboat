@@ -2,3 +2,10 @@ __pycache__
 venv/
 docs/Literature_Review_Presentation.pptx
 CLAUDE.md
+
+# macOS
+.DS_Store
+
+# VS / VS Code
+.vs/
+.vscode/
