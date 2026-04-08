@@ -62,7 +62,7 @@ SPI_HandleTypeDef hspi1;
 static void MX_SPI1_Init(void);
 /* USER CODE END PFP */
 
-/* Private user code ---------------------------------------------------------*/
+/* Private user code --------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
 /* USER CODE END 0 */
