@@ -325,9 +325,14 @@ int LoRa_init(void){
     uint8_t version = SPI_rx_byte(REG_VERSION);
     Debug_LED_Toggle('y');
 
-    if(version != 0x11){
+    if(version != 0x12){
         // set red LED high
+        printf("LoRa version mismatch: expected 0x12, got 0x%02X\r\n", version);
+        printf("LoRa init FAILED, returning -1\r\n");
         return -1;
+    }
+    else{
+        printf("LoRa version OK: 0x%02X\r\n", version);
     }
 
     // set sleep mode (can only edit things in sleep mode)

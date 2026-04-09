@@ -77,6 +77,11 @@ void HAL_MspInit(void)
 
 /* USER CODE BEGIN 1 */
 
+/*
+  USART3 Peripheral is hard wired to the ST-Link com port (the micro usb port on the board) so we can just use that 
+  instead of hooking up the usart to serial converter.
+*/
+
 void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};

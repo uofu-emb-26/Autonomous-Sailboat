@@ -134,6 +134,15 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
+  COM_InitTypeDef com = {
+      .BaudRate   = 115200,
+      .WordLength = COM_WORDLENGTH_8B,
+      .StopBits   = COM_STOPBITS_1,
+      .Parity     = COM_PARITY_NONE,
+      .HwFlowCtl  = COM_HWCONTROL_NONE,
+  };
+  BSP_COM_Init(COM1, &com);
+  setvbuf(stdout, NULL, _IONBF, 0);
   MX_SPI1_Init();
 
   Debug_LED_Init();
@@ -142,13 +151,15 @@ int main(void)
   // Debug_LED_Toggle('y');  // toggle yellow LED to indicate SPI initialized
 
   if (LoRa_init() != 0)
-  {   
-      Debug_LED_Toggle('r'); // lora init failed, set red LED high  
-      Error_Handler();    /* SPI wiring wrong or chip not found */
+  {
+      printf("LoRa init FAILED\r\n");
+      Debug_LED_Toggle('r');
+      Error_Handler();
   }
   else
   {
-      Debug_LED_Toggle('o');  // lora init successful 
+      printf("LoRa init OK\r\n");
+      Debug_LED_Toggle('o');
   }
 
   TelemetryPacket_t pkt = {
@@ -176,6 +187,7 @@ int main(void)
 }
 
 /* USER CODE BEGIN 4 */
+
 
 static void MX_SPI1_Init(void)
 {
