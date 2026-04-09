@@ -190,15 +190,6 @@ void hardware_init(void)
     if ( timeout < 0 ) { Error_Handler(); }
   #endif
 
-  /* USER CODE BEGIN SysInit */
-  button_hardwareInit();
-  servoSail_hardwareInit();
-  sensorWind_hardwareInit();
-  /* USER CODE END SysInit */
-
-  /* USER CODE BEGIN 2 */
-  /* USER CODE END 2 */
-
   /* Initialize COM1 port (115200, 8 bits (7-bit data + 1 stop bit), no parity */
   BspCOMInit.BaudRate   = 115200;
   BspCOMInit.WordLength = COM_WORDLENGTH_8B;
@@ -209,6 +200,15 @@ void hardware_init(void)
   {
     Error_Handler();
   }
+
+  /* USER CODE BEGIN SysInit */
+  button_hardwareInit();
+  servoSail_hardwareInit();
+  sensorWind_hardwareInit();
+  /* USER CODE END SysInit */
+
+  /* USER CODE BEGIN 2 */
+  /* USER CODE END 2 */
 }
 
 /**
