@@ -129,4 +129,31 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi)
     }
 }
 
+
+
+void Debug_LED_Init(void)
+{
+    __HAL_RCC_GPIOB_CLK_ENABLE();  // LD1 is PB0,
+
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin   = GPIO_PIN_0 | GPIO_PIN_14;  // LD1 green, LD3 red
+    GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull  = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    // start both off
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0 | GPIO_PIN_14, GPIO_PIN_RESET);
+}
+
+
+
+void Debug_LED_Toggle(char color)
+{
+    if (color == 'g')
+        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);   // green LD1
+    else if (color == 'r')
+        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);  // red LD3
+}
+
 /* USER CODE END 1 */

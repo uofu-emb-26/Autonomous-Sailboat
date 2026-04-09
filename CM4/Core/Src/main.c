@@ -48,7 +48,7 @@ typedef struct __attribute__((packed)) {
 /*                             demonstration code based on hardware semaphore */
 /* This define is present in both CM7/CM4 projects                            */
 /* To comment when developping/debugging on a single core                     */
-#define DUAL_CORE_BOOT_SYNC_SEQUENCE
+// #define DUAL_CORE_BOOT_SYNC_SEQUENCE
 
 #if defined(DUAL_CORE_BOOT_SYNC_SEQUENCE)
 #ifndef HSEM_ID_0
@@ -126,14 +126,15 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
-  MX_SPI1_Init();
+  // MX_SPI1_Init();
+
+  Debug_LED_Init();
 
 
-
-  if (LoRa_init() != 0)
-  {
-      Error_Handler();    /* SPI wiring wrong or chip not found */
-  }
+  // if (LoRa_init() != 0)
+  // {
+  //     Error_Handler();    /* SPI wiring wrong or chip not found */
+  // }
 
   TelemetryPacket_t pkt = {
       .lat        = 40.7128f,
@@ -150,9 +151,11 @@ int main(void)
   {
     /* USER CODE END WHILE */
 
-    LoRa_Send((uint8_t *)&pkt, sizeof(pkt));
+    // LoRa_Send((uint8_t *)&pkt, sizeof(pkt));
+    
+    Debug_LED_Toggle('r');
     HAL_Delay(1000);
-
+    Debug_LED_Toggle('g');
     
     /* USER CODE BEGIN 3 */
   }
