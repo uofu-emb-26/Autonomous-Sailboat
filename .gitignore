@@ -22,3 +22,5 @@ compile_commands.json
 .vs/
 .vscode/
 .settings/ide.store.json
+
+.pio/
