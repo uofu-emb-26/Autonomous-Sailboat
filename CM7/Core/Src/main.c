@@ -175,9 +175,9 @@ void hardware_init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_TIM1_CLK_ENABLE();
   __HAL_RCC_UART4_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
 
   SystemClock_Config();
 
