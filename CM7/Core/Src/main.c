@@ -174,11 +174,12 @@ void hardware_init(void)
   HAL_Init();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_TIM1_CLK_ENABLE();
   __HAL_RCC_UART4_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-
+  __HAL_RCC_I2C2_CLK_ENABLE();
   SystemClock_Config();
 
   #if defined(DUAL_CORE_BOOT_SYNC_SEQUENCE)
