@@ -7,7 +7,8 @@
 #define TASK_NAME "magnetometerTask"
 #define TASK_STACK_SIZE 128
 #define TASK_PRIORITY osPriorityAboveNormal
-#define BNO055_ADDR  0x29  // default, COM3 high
+#define BNO055_ADDR  0x29  // default, COM3 high Try 0x28 if this doesn't work
+#define BNO055_WHO_AM_I 0x00  // chip ID register
 
 TaskHandle_t task_sensorGPS
 
@@ -45,7 +46,9 @@ void magnometer_hardwareInit()
     // PRESC = 6: Divides 64MHz down to a manageable internal frequency.
 
     // SCLH/SCLL: Set to create a symmetrical 100kHz square wave.
-    I2C_BNO055_Handle.Init.Timing = 0x60201E28;
+    I2C_BNO055_Handle.Init.Timing = 0x60201E28; // <- need to see if this is correct.
+    // (1+1)/64MHZ = 31.25 NS
+    // 
     I2C_BNO055_Handle.Init.I2C_ADDRESSINGMODE_7BIT
     I2C_BNO055_Handle.Init.OwnAddress1 = 0;
     I2C_BNO055_Handle.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -53,7 +56,7 @@ void magnometer_hardwareInit()
     I2C_BNO055_Handle.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
     HAL_I2C_Init(&I2C_BNO055_Handle);
     // then we need to do the write transaciton
-    uint8_t reg = 0x00; // Don't know what
+    uint8_t reg = BNO055_WHO_AM_I; // Pretty sure this is right
     uint8_t chip_id = 0;
     // the chip is 0xA0  on https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bno055-ds000.pdf
     // HAL_StatusTypeDef HAL_I2C_Master_Receive and HAL_I2C_Master_Receive parameters:
@@ -65,8 +68,8 @@ void magnometer_hardwareInit()
     HAL_I2C_Master_Transmit(&I2C_BNO055_Handle, BNO055_ADDR << 1, &reg, 1, HAL_MAX_DELAY);
 
     HAL_I2C_Master_Receive(&I2C_BNO055_Handle, BNO055_ADDR << 1, &chip_id, 1, HAL_MAX_DELAY);
-    // we right shift by 1 cause we want to write data to there, 8 bit address total
-    if(chip_id == 0xA0)
+    // we right shift by 1 cause we want to write/read data to there, 8 bit address total
+    if(chip_id == 0xA0) // The value we read: uint8_t reg = BNO055_WHO_AM_I;
     {
         // we know we're talking to the sensor once this is true
         button_handler();
