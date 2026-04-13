@@ -77,6 +77,11 @@ void HAL_MspInit(void)
 
 /* USER CODE BEGIN 1 */
 
+/*
+  USART3 Peripheral is hard wired to the ST-Link com port (the micro usb port on the board) so we can just use that 
+  instead of hooking up the usart to serial converter.
+*/
+
 void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -86,6 +91,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi)
       __HAL_RCC_SPI1_CLK_ENABLE();
       __HAL_RCC_GPIOA_CLK_ENABLE();
       __HAL_RCC_GPIOD_CLK_ENABLE();
+  
 
       /* PA5=SCK, PA6=MISO */
       __HAL_RCC_GPIOA_CLK_ENABLE();
@@ -134,6 +140,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi)
 void Debug_LED_Init(void)
 {
     __HAL_RCC_GPIOB_CLK_ENABLE();  // LD1 is PB0,
+    __HAL_RCC_GPIOE_CLK_ENABLE();  // LD2
 
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     GPIO_InitStruct.Pin   = GPIO_PIN_0 | GPIO_PIN_14;  // LD1 green, LD3 red
@@ -144,6 +151,16 @@ void Debug_LED_Init(void)
 
     // start both off
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0 | GPIO_PIN_14, GPIO_PIN_RESET);
+
+    //yellow
+    GPIO_InitStruct.Pin   = GPIO_PIN_1;  // LD2 yellow
+    GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull  = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_1, GPIO_PIN_RESET);  // set yellow LED low to indicate we're in main and ready to init lora
+
 }
 
 
@@ -154,6 +171,10 @@ void Debug_LED_Toggle(char color)
         HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);   // green LD1
     else if (color == 'r')
         HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);  // red LD3
+    else if (color == 'y')
+    {
+        HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_1);   // yellow LD2
+    }
 }
 
 /* USER CODE END 1 */
