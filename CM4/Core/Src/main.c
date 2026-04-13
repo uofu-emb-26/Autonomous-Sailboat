@@ -126,7 +126,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
-  // MX_SPI1_Init();
+  MX_SPI1_Init();
 
   Debug_LED_Init();
 
