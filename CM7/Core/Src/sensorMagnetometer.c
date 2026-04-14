@@ -25,6 +25,7 @@ void magnometer_hardwareInit()
     // added __HAL_RCC_I2C2_CLK_ENABLE(); to the main.c
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
+    // using PF0 for I2C2_SDA
     GPIO_InitStruct.Pin = GPIO_PIN_0;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_OD; // Open Drain - OD
     GPIO_InitStruct.Pull = GPIO_NOPULL; 
@@ -32,6 +33,7 @@ void magnometer_hardwareInit()
     GPIO_InitStruct.Alternate = GPIO_AF4_I2C2;
     HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
+    // using PF1 for I2C2_SCL
     GPIO_InitStruct.Pin = GPIO_PIN_1;
     HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
