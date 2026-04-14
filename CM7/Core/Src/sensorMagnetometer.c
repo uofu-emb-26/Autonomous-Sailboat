@@ -1,5 +1,3 @@
-
-
 // #include "cmsis_os2.h"
 #include "main.h"
 // #include "servoSail.h"
@@ -10,7 +8,7 @@
 #define BNO055_ADDR  0x29  // default, COM3 high Try 0x28 if this doesn't work
 #define BNO055_WHO_AM_I 0x00  // chip ID register
 
-TaskHandle_t task_sensorGPS
+TaskHandle_t task_sensorGPS;
 
 void magnetometer_handle(void *argument);
 I2C_HandleTypeDef I2C_BNO055_Handle;
@@ -65,15 +63,28 @@ void magnometer_hardwareInit()
     // freq = 1/ period = 101khz-ish ~= basically 100khz (really is 101khz) we can do more specific math later
 
     // The Total = t_{SCLL} + t_{SCLH} high and low durations
-    I2C_BNO055_Handle.Init.Timing = 0x107DBC; // <- need to see if this is correct.
+    //I2C_BNO055_Handle.Init.Timing = 0x107DBC; // <- need to see if this is correct.
     // (1+1)/64MHZ = 31.25 NS
     // 
-    I2C_BNO055_Handle.Init.I2C_ADDRESSINGMODE_7BIT
+
+
+    //<---------------Connor and Charbel Timing Setup----------------->
+    // Use table example in reference manual (use 64Mhz base clock divide by 16 to get 4MHz)
+    // For each frequency the tables prescales each frequency into 4Mhz and uses 4Mhz for every other settings
+    // That's why prescale is 15 since 64MHz / 16 = 4MHz
+    I2C_BNO055_Handle.Init.Timing = 0xf0420f13;
+
+    I2C_BNO055_Handle.Init.AddressingMode =  I2C_ADDRESSINGMODE_7BIT;
     I2C_BNO055_Handle.Init.OwnAddress1 = 0;
     I2C_BNO055_Handle.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
     I2C_BNO055_Handle.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
     I2C_BNO055_Handle.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-    HAL_I2C_Init(&I2C_BNO055_Handle);
+    
+    if (HAL_I2C_Init(&I2C_BNO055_Handle) != HAL_OK) {
+        printf("I2C Init Error");
+        Error_Handler();
+    }
+
     // then we need to do the write transaciton
     uint8_t reg = BNO055_WHO_AM_I; // Pretty sure this is right
     uint8_t chip_id = 0;
