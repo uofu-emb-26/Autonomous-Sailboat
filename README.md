@@ -11,6 +11,8 @@
 
 * Harrison LeTourneau (u1460207)
 * Adam Welsh (u1456456)
+* Jared Pratt (u1237327)
+* Aliou Tippett (u1415075)
 
 ## SCRIPTS
 
