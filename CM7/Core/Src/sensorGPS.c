@@ -2,7 +2,7 @@
 #include "stm32h7xx_hal_i2c.h"
 #include "sensorGPS.h"
 
-#define M9N_ADDR 0x42  // default I2C address for the M9N GPS module, according to AI, never found it in the data sheet
+// #define M9N_ADDR 0x42  // default I2C address for the M9N GPS module, according to AI, never found it in the data sheet
 
 TaskHandle_t task_sensorGPS;
 UART_HandleTypeDef  UART7_Handler = {0};
