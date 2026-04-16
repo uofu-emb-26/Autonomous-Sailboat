@@ -20,17 +20,17 @@ void sensorMagnetometer_hardwareInit()
     // added __HAL_RCC_I2C2_CLK_ENABLE(); to the main.c
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-    // using PF0 for I2C2_SDA
-    GPIO_InitStruct.Pin = GPIO_PIN_0;
+    // using PB11 for I2C2_SDA
+    GPIO_InitStruct.Pin = GPIO_PIN_11;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_OD; // Open Drain - OD
     GPIO_InitStruct.Pull = GPIO_NOPULL; 
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF4_I2C2;
-    HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    // using PF1 for I2C2_SCL
-    GPIO_InitStruct.Pin = GPIO_PIN_1;
-    HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
+    // using PB10 for I2C2_SCL
+    GPIO_InitStruct.Pin = GPIO_PIN_10;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
     // HAL_StatusTypeDef HAL_I2C_Init(I2C_HandleTypeDef *hi2c);                      line 601 of Stm32h7xx_hal_i2c.h
     // I2C_TypeDef                *Instance;      /*!< I2C registers base address    line 186 of Stm32h7xx_hal_i2c.h
@@ -119,10 +119,10 @@ void sensorMagnetometer_handler(void *argument)
 }
 
 void sensorMagnetometer_readWhoAmI()
-{
+{   
     // then we need to do the write transaciton
-    uint8_t reg = BNO055_WHO_AM_I; // Pretty sure this is right
-    uint8_t chip_id = 0;
+    uint8_t sendBuff = BNO055_WHO_AM_I; // Pretty sure this is right
+    uint8_t receiveBuff = 0;
     // the chip is 0xA0  on https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bno055-ds000.pdf
     // HAL_StatusTypeDef HAL_I2C_Master_Receive and HAL_I2C_Master_Receive parameters:
     // I2C_HandleTypeDef *hi2c, - I2C_BNO055_Handle,
@@ -130,16 +130,30 @@ void sensorMagnetometer_readWhoAmI()
     // uint8_t *pData, - &chip_id,
     // uint16_t Size, - The amount of bytes we are reading,
     // uint32_t Timeout); - The delay,
-    HAL_I2C_Master_Transmit(&I2C_BNO055_Handle, BNO055_ADDR << 1, &reg, 1, HAL_MAX_DELAY);
+    HAL_StatusTypeDef info;
+    info = HAL_I2C_Master_Transmit(&I2C_BNO055_Handle, BNO055_ADDR << 1, &sendBuff, 1, 5000);
+    
+    if (info != HAL_OK){
+        printf("Transmit FAILED, HAL status: %d, I2C error: 0x%lX\r\n", info, HAL_I2C_GetError(&I2C_BNO055_Handle));
+        return;
+    }
 
-    HAL_I2C_Master_Receive(&I2C_BNO055_Handle, BNO055_ADDR << 1, &chip_id, 1, HAL_MAX_DELAY);
+
+
+    info = HAL_I2C_Master_Receive(&I2C_BNO055_Handle, BNO055_ADDR << 1, &receiveBuff, 1, 5000);
+
+    if (info != HAL_OK) {
+        printf("Receive FAILED, HAL status: %d, I2C error: 0x%lX\r\n", info, HAL_I2C_GetError(&I2C_BNO055_Handle));
+        return;
+    }
+
     // we right shift by 1 cause we want to write/read data to there, 8 bit address total
-    if(chip_id == 0xA0) // The value we read: uint8_t reg = BNO055_WHO_AM_I;
+    if(receiveBuff == 0xA0) // The value we read: uint8_t reg = BNO055_WHO_AM_I;
     {
-        printf("BNO055 WHO_AM_I OK: 0x%02X\r\n", chip_id);
+        printf("BNO055 WHO_AM_I OK: 0x%02X\r\n", receiveBuff);
     }
     else
     {
-        printf("BNO055 WHO_AM_I FAILED: expected 0xA0, got 0x%02X\r\n", chip_id);
+        printf("BNO055 WHO_AM_I FAILED: expected 0xA0, got 0x%02X\r\n", receiveBuff);
     }
 }
