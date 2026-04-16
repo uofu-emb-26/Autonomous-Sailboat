@@ -522,10 +522,8 @@ void sensorWind_handler(void *argument)
             uint16_t degrees = (uint16_t)angle;
             uint16_t tenths  = (uint16_t)(angle * 10) % 10;  // get decimal digit
             printf("Wind angle: %u.%u deg\r\n", degrees, tenths);
-            servoSail_setAngle(degrees);
+            servoSail_setAngle((degrees - 180) / -2);
         }
-
-        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 

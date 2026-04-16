@@ -20,7 +20,7 @@ void servoSail_hardwareInit()
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-  GPIO_InitStruct.Pin = GPIO_PIN_9;
+  GPIO_InitStruct.Pin = GPIO_PIN_9; 
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -66,4 +66,5 @@ void servoSail_setAngle(int16_t angle)
     if (angle > SERVO_MAX_ANGLE) angle = SERVO_MAX_ANGLE;
     uint16_t pulse_length = SERVO_MIN_PULSE + ((SERVO_MAX_PULSE - SERVO_MIN_PULSE) * (angle - SERVO_MIN_ANGLE)) / (SERVO_MAX_ANGLE - SERVO_MIN_ANGLE);
     __HAL_TIM_SET_COMPARE(&servo_tim1, TIM_CHANNEL_1, pulse_length);
+    printf("Setting Servo Angle To: %d\r\n", angle);
 }
