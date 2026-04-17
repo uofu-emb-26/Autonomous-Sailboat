@@ -20,6 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32h7xx_it.h"
+#include "stm32h7xx_hal_tim.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -57,7 +58,8 @@
 /* External variables --------------------------------------------------------*/
 
 /* USER CODE BEGIN EV */
-
+extern TIM_HandleTypeDef htim6;
+extern volatile uint8_t  tx_flag;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -199,5 +201,19 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /* USER CODE BEGIN 1 */
+
+void TIM6_DAC_IRQHandler(void)
+{
+    HAL_TIM_IRQHandler(&htim6);  /* clears the update flag, calls callback below */
+}
+
+/* Called by HAL_TIM_IRQHandler when the update event fires (every 1 s) */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM6)
+    {
+        tx_flag = 1;
+    }
+}
 
 /* USER CODE END 1 */

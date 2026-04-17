@@ -26,6 +26,7 @@
 #include "stm32h7xx_hal_gpio.h"
 #include "stm32h7xx_hal_rcc.h"
 #include "stm32h7xx_hal_spi.h"
+#include "stm32h7xx_hal_tim.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -74,11 +75,14 @@ typedef struct __attribute__((packed)) {
 
 /* USER CODE BEGIN PV */
 SPI_HandleTypeDef hspi1;
+TIM_HandleTypeDef htim6;
+volatile uint8_t  tx_flag = 0;   /* set by TIM6 ISR every 1 s */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
 static void MX_SPI1_Init(void);
+static void MX_TIM6_Init(void);
 static void SystemClock_Config(void);
 /* USER CODE END PFP */
 
@@ -148,6 +152,7 @@ int main(void)
   
   
   MX_SPI1_Init();
+  MX_TIM6_Init();
 
   Debug_LED_Init();
 
@@ -157,12 +162,6 @@ int main(void)
   if (LoRa_init() != 0)
   {
       printf("LoRa init FAILED\r\n");
-      Debug_LED_Toggle('r');
-      Error_Handler();
-  }
-  else
-  {
-      printf("LoRa init OK\r\n");
       Debug_LED_Toggle('o');
   }
 
@@ -181,80 +180,14 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      // for (int i = 0; i < 100; i++)
-      // {
-      //     char msg[50];
-      //     snprintf(msg, sizeof(msg), "DELETING ALL FILES", i);
-      //     LoRa_Send((uint8_t *)msg, strlen(msg));
-      //     Debug_LED_Toggle('g');
-      //     HAL_Delay(1000);
-      // }
+      __WFI();   /* sleep until any interrupt fires */
 
-
-      // char msg[50];
-      // snprintf(msg, sizeof(msg), "DELETING ALL FILES\n");
-      // LoRa_Send((uint8_t *)msg, strlen(msg));
-      // Debug_LED_Toggle('g');
-      // HAL_Delay(500);
-
-      // snprintf(msg, sizeof(msg), "REMOVING CPU...\n");
-      // LoRa_Send((uint8_t *)msg, strlen(msg));
-      // Debug_LED_Toggle('g');
-      // HAL_Delay(500);
-
-      // snprintf(msg, sizeof(msg), "BEGINNING COMPUTER NUKE SEQUENCE\n");
-      // LoRa_Send((uint8_t *)msg, strlen(msg));
-      // Debug_LED_Toggle('g');
-      // HAL_Delay(500);
-
-      // snprintf(msg, sizeof(msg), "FOUND 1056 FILES MARKED, 'crank'... DELETING\n");
-      // LoRa_Send((uint8_t *)msg, strlen(msg));
-      // Debug_LED_Toggle('g');
-      // HAL_Delay(500);
-
-      // snprintf(msg, sizeof(msg), "REMOVING GPU...\n");
-      // LoRa_Send((uint8_t *)msg, strlen(msg));
-      // Debug_LED_Toggle('g');
-      // HAL_Delay(500);
-
-      // snprintf(msg, sizeof(msg), "INITIZING SELF DESTRUCT SEQUENCE...\n");
-      // LoRa_Send((uint8_t *)msg, strlen(msg));
-      // Debug_LED_Toggle('g');
-      // HAL_Delay(500);
-
-
-      // snprintf(msg, sizeof(msg), "DELETING ALL FILES");
-      // LoRa_Send((uint8_t *)msg, strlen(msg));
-      // Debug_LED_Toggle('g');
-      // HAL_Delay(500);
-
-      LoRa_Send("JARED SEND SOMETHING", sizeof("JARED SEND SOMETHING"));
-
-      char rx_buf[255];
-
-      int n = LoRa_Receive(rx_buf, 2000);
-      if (n > 0) {
-          printf("%c", rx_buf[0]);
-          if (rx_buf[0] == 'y') {
-              Debug_LED_Toggle('y');
-              LoRa_Send((uint8_t *)"Recieved 'y', toggled yellow LED.", strlen("Recieved 'y', toggled yellow LED."));
-          }
-          else if (rx_buf[0] == 'g') {
-              Debug_LED_Toggle('g');
-              LoRa_Send((uint8_t *)"Recieved 'g', toggled green LED.", strlen("Recieved 'g', toggled green LED."));
-          }
-          else if (rx_buf[0] == 'r') {
-              Debug_LED_Toggle('r');
-              LoRa_Send((uint8_t *)"Recieved 'r', toggled red LED.", strlen("Recieved 'r', toggled red LED."));
-          }
-      } else if (n == 0) {
-          printf("[RX] timeout\r\n");
-      } else {
-          printf("[RX] error\r\n");
+      if (tx_flag) {
+          tx_flag = 0;
+          LoRa_Send((uint8_t *)"JARED SEND SOMETHING", sizeof("JARED SEND SOMETHING"));
+          Debug_LED_Toggle('g');
+          printf("[TX] sent\r\n");
       }
-
-      
-
   }
 
 
@@ -285,6 +218,24 @@ static void MX_SPI1_Init(void)
     {
         Error_Handler();
     }
+}
+
+static void MX_TIM6_Init(void)
+{
+    __HAL_RCC_TIM6_CLK_ENABLE();
+
+    htim6.Instance               = TIM6;
+    htim6.Init.Prescaler         = 63999;  /* 64 MHz / 64000 = 1 kHz  */
+    htim6.Init.CounterMode       = TIM_COUNTERMODE_UP;
+    htim6.Init.Period            = 999;    /* 1 kHz  / 1000  = 1 Hz   */
+    htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+
+    if (HAL_TIM_Base_Init(&htim6) != HAL_OK) { Error_Handler(); }
+
+    HAL_NVIC_SetPriority(TIM6_DAC_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(TIM6_DAC_IRQn);
+
+    HAL_TIM_Base_Start_IT(&htim6);  /* start timer, enable update interrupt */
 }
 
 static void SystemClock_Config(void)
