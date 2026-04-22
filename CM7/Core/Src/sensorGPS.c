@@ -152,7 +152,7 @@ void GPS_Poll(void) // MOVE THIS TO THE MAIN LOOP EVENTUALLY?
 {
     uint8_t byte;
     // Blocks until 1 byte arrives (or timeout)
-    if (HAL_UART_Receive(&huart7, &byte, 1, 10) == HAL_OK)
+    if (HAL_UART_Receive(&UART7_Handler, &byte, 1, 10) == HAL_OK)
     {
         GPS_ProcessChar(byte);
     }

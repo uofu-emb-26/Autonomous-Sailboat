@@ -1,7 +1,7 @@
 #include "main.h"
 #include "sensorMagnetometer.h"
 
-#define BNO055_ADDR  0x28  // default, COM3 high Try 0x28 if this doesn't work
+#define BNO055_ADDR  0x28  // ADR pin LOW (default Adafruit breakout). Use 0x29 if ADR pin is HIGH.
 #define BNO055_WHO_AM_I 0x00  // chip ID register
 #define BNO055_ACC 0x01  // chip ID register
 #define BNO055_MAG 0x02  // chip ID register
@@ -28,7 +28,14 @@
 
 TaskHandle_t task_sensorMagnetometer;
 
+static void sensorMagnetometer_readChip(uint8_t regADDR, const char *name);
 void sensorMagnetometer_readWhoAmI();
+void sensorMagnetometer_readMAG();
+void sensorMagnetometer_readACC();
+void sensorMagnetometer_readGYRO();
+void sensorMagnetometer_readGYRO_Vector();
+void sensorMagnetometer_readMAG_Vector();
+void sensorMagnetometer_readACC_Vector();
 
 I2C_HandleTypeDef I2C_BNO055_Handle;
 
@@ -124,6 +131,13 @@ void sensorMagnetometer_hardwareInit()
         printf("I2C Init Error");
         Error_Handler();
     }
+
+    // BNO055 requires up to 650ms after power-on before it responds to I2C.
+    // Without this delay the first transaction gets a NACK (error 0x2) which
+    // can then leave the peripheral in a stuck state (error 0x20).
+    HAL_Delay(700);
+
+    sensorMagnetometer_readWhoAmI();
 }
 
 // 0xAA is the start byte
@@ -135,10 +149,9 @@ void sensorMagnetometer_handler(void *argument)
 {
     for(;;)
     {
-        sensorMagnetometer_readWhoAmI();
-        // sensorMagnetometer_readGYRO_Vector();
-        // sensorMagnetometer_readMAG_Vector();
-        // sensorMagnetometer_readACC_Vector();
+        sensorMagnetometer_readGYRO_Vector();
+        sensorMagnetometer_readMAG_Vector();
+        sensorMagnetometer_readACC_Vector();
         sensorMagnetometer_readMAG();
         sensorMagnetometer_readACC();
         sensorMagnetometer_readGYRO();
@@ -150,24 +163,20 @@ void sensorMagnetometer_readWhoAmI() {
     sensorMagnetometer_readChip(BNO055_WHO_AM_I, "Who Am I");
 }
 
-void sensorMagnetometer_readChip(uint8_t regADDR, const char *name)
+static void sensorMagnetometer_readChip(uint8_t regADDR, const char *name)
 {   
     uint8_t receiveBuff = 0;
     uint8_t expected = 0;
 
     HAL_StatusTypeDef info;
 
-    info = HAL_I2C_Master_Transmit(&I2C_BNO055_Handle, BNO055_ADDR << 1, &regADDR, 1, 5000);
-    
-    if (info != HAL_OK){
-        printf("%s Transmit FAILED, HAL status: %d, I2C error: 0x%lX\r\n", name, info, HAL_I2C_GetError(&I2C_BNO055_Handle));
-        return;
-    }
-
-    info = HAL_I2C_Master_Receive(&I2C_BNO055_Handle, BNO055_ADDR << 1, &receiveBuff, 1, 5000);
+    info = HAL_I2C_Mem_Read(&I2C_BNO055_Handle, BNO055_ADDR << 1, regADDR,
+                            I2C_MEMADD_SIZE_8BIT, &receiveBuff, 1, 5000);
 
     if (info != HAL_OK) {
-        printf("%s Receive FAILED, HAL status: %d, I2C error: 0x%lX\r\n", name, info, HAL_I2C_GetError(&I2C_BNO055_Handle));
+        printf("%s FAILED, HAL status: %d, I2C error: 0x%lX\r\n", name, info, HAL_I2C_GetError(&I2C_BNO055_Handle));
+        HAL_I2C_DeInit(&I2C_BNO055_Handle);
+        HAL_I2C_Init(&I2C_BNO055_Handle);
         return;
     }
 
@@ -214,7 +223,7 @@ static void BNO055_readVector(uint8_t startReg, const char *name)
         BNO055_ADDR << 1,       // 7-bit addr shifted for HAL
         startReg,               // register to start reading from
         I2C_MEMADD_SIZE_8BIT,   // BNO055 uses 8-bit register addresses
-        &data,                   // output buffer
+        data,                    // output buffer
         6,                      // read 6 bytes (LSB+MSB for X, Y, Z)
         5000                    // timeout ms
     );

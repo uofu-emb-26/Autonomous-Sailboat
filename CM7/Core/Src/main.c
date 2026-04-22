@@ -47,7 +47,6 @@
 /* Private variables ---------------------------------------------------------*/
 
 COM_InitTypeDef BspCOMInit;
-GPS_Data_t myGPS; // Our GPS struct
 /* Private function prototypes -----------------------------------------------*/
 
 void SystemClock_Config(void);
