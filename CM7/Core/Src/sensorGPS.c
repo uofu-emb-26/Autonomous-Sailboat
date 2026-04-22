@@ -8,7 +8,7 @@
 TaskHandle_t task_sensorGPS;
 UART_HandleTypeDef  UART7_Handler = {0};
 
-static uint8_t g_gps_raw_byte;
+// static uint8_t g_gps_raw_byte;for interrupt
 static char g_nmea_buffer[128];
 static int g_index = 0; 
 GPS_Data_t myGPS; // The actual data storage for NMEA06
