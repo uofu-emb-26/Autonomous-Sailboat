@@ -218,15 +218,17 @@ static void BNO055_readVector(uint8_t startReg, const char *name)
     uint8_t data[6] = {0};
     HAL_StatusTypeDef info;
 
-    info = HAL_I2C_Mem_Read(
+    if (HAL_OK != HAL_I2C_Mem_Read(
         &I2C_BNO055_Handle,
         BNO055_ADDR << 1,       // 7-bit addr shifted for HAL
         startReg,               // register to start reading from
         I2C_MEMADD_SIZE_8BIT,   // BNO055 uses 8-bit register addresses
-        data,                    // output buffer
+        &data,                   // output buffer
         6,                      // read 6 bytes (LSB+MSB for X, Y, Z)
         5000                    // timeout ms
-    );
+    )) {
+        printf("%s Transmit FAILED, HAL status: %d, I2C error: 0x%lX\r\n", name, info, HAL_I2C_GetError(&I2C_BNO055_Handle));
+    }
 
     int16_t x = (int16_t)((data[1] << 8) | data[0]);
     int16_t y = (int16_t)((data[3] << 8) | data[2]);
