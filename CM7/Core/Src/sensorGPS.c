@@ -106,32 +106,46 @@ void GPS_Parse_GGA(char* nmea_str, GPS_Data_t* gps_struct)
   // We have to check if its an actual GPGGA sentence
   if (strstr(nmea_str, "$GPGGA") == NULL) 
     return;
-
 }
 
-GPS_ProcessChar(uint8_t rx_byte)
+void GPS_ProcessChar(uint8_t rx_byte)
 {
   if(rx_byte == '\n')
   {
+   if (g_index > 0 && g_nmea_buffer[g_index - 1] == '\r') // page 66, carriage return https://content.u-blox.com/sites/default/files/products/documents/u-blox6_ReceiverDescrProtSpec_%28GPS.G6-SW-10018%29_Public.pdf
+   {
+        g_index--;  // We need to overwrite the \r
+   }
+
+      // Have to end with null terminator
     g_nmea_buffer[g_index] = '\0';
-    GPS_Parse_GGA(g_nmea_buffer);
-    g_index = 0;
-  } else 
+
+   if (strstr(g_nmea_buffer, "$GPGGA") != NULL) 
+      {
+          GPS_Parse_GGA(g_nmea_buffer, &myGPS); // (Global Positioning System Fix Data) 
+      }
+
+    //GPS_Parse_GLL(g_nmea_buffer, &myGPS);
+
+  }
+  else 
   {
     if (g_index < 127)
     {
       g_nmea_buffer[g_index++] = rx_byte;
     }
-      
   }
 }
 
-HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  // 
   if (huart->Instance == UART7) 
   {
-    
+    GPS_ProcessChar(g_gps_raw_byte);
+    HAL_UART_Receive_IT(huart, &g_gps_raw_byte, 1);
   }
-
+  
 }
 
 
