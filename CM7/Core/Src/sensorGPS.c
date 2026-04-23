@@ -111,6 +111,13 @@ void GPS_Parse_GGA(char* nmea_str, GPS_Data_t* gps_struct)
   gps_struct -> altitude = atof(gps_fields[9]);
   gps_struct -> satellites = atof(gps_fields[7]);
   gps_struct -> fix_valid = atof(gps_fields[6]); // 1 if there is gps fix
+
+  printf("FIX:%d  SATS:%d  LAT:%.6f  LON:%.6f  ALT:%.1f\n",
+    gps_struct->fix_valid,
+    gps_struct->satellites,
+    gps_struct->latitude,
+    gps_struct->longitude,
+    gps_struct->altitude);
 }
 
 void GPS_ProcessChar(uint8_t rx_byte)
