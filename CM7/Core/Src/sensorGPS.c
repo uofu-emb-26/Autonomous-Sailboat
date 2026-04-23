@@ -3,7 +3,7 @@
 #include "sensorGPS.h"
 #include "gps_parser.h"
 #include <stdint.h> // Need this for a struct. If we are low on memory feel free to remove.
-#include <string.h> // 
+#include <string.h>
 
 TaskHandle_t task_sensorGPS;
 UART_HandleTypeDef  UART7_Handler = {0};
@@ -72,24 +72,29 @@ void GPS_Parse_GGA(char* nmea_str, GPS_Data_t* gps_struct)
   char *gps_fields[15];
 
   // parse string by commas
-  char *token = (nmea_str, ",");
+  char *token = strtok(nmea_str, ",");
   
   // move tokens into their respective gps fields
-  for (int i = 0; i < 15; i++)
-  {
-    gps_fields[i] = token + (i * 4);
+  for (int i = 0; i < 15 && token != NULL; i++) {
+    gps_fields[i] = token;
+    token = strtok(NULL, ",");  // NULL tells strtok to continue from where it left off
   }
+  
+  // EX lat or long: 4007.038 (DDDMM.MMMM)
+  // 40 degrees and 07.038 minutes
 
   //convert lat and long from dec to degrees
   // atof converts ASCII string to float
   float lat_raw = atof(gps_fields[2]);
   float long_raw = atof(gps_fields[4]);
 
-  // convert to int
-  float lat_raw = (int) (lat_raw / 100);
-  float long_raw = (int) (long_raw / 100);
+  // get degree in int
+  int lat_deg = (int) (lat_raw / 100);
+  int long_deg = (int) (long_raw / 100);
 
-  // how to convert to actual degree?
+  // pull out minutes and convert to decimal degrees
+  gps_struct -> latitude = lat_deg + (lat_raw - lat_deg * 100) / 60.0f;
+  gps_struct -> longitude = long_deg + (long_raw - long_deg * 100) / 60.0f;
 
   // Get cardinal directions (south and west are considered neg in decimal degrees)
   if (gps_fields[3][0] == 'S')
@@ -102,6 +107,7 @@ void GPS_Parse_GGA(char* nmea_str, GPS_Data_t* gps_struct)
     gps_struct->longitude = -gps_struct->longitude;
   }
 
+  // set up the rest of the gps fields
   gps_struct -> altitude = atof(gps_fields[9]);
   gps_struct -> satellites = atof(gps_fields[7]);
   gps_struct -> fix_valid = atof(gps_fields[6]); // 1 if there is gps fix
@@ -149,9 +155,8 @@ void GPS_ProcessChar(uint8_t rx_byte)
 //   if (huart->Instance == UART7) 
 //   {
 //     GPS_ProcessChar(g_gps_raw_byte);
-//     HAL_UART_Receive_IT(huart, &g_gps_raw_byte, 1);
+//     HAL_UART_Receive_IT(huart, &g_gps_raw_byte, 1); 
 //   }
-  
 // }
 
 void GPS_Poll(void) // MOVE THIS TO THE MAIN LOOP EVENTUALLY?
@@ -161,10 +166,6 @@ void GPS_Poll(void) // MOVE THIS TO THE MAIN LOOP EVENTUALLY?
     if (HAL_UART_Receive(&UART7_Handler, &byte, 1, 10) == HAL_OK)
     {
       GPS_ProcessChar(byte);
-    }
-    else
-    {
-      Error_Handler();
     }
 }
 
