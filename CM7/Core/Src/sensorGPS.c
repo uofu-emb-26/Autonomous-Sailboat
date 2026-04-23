@@ -70,17 +70,41 @@ void GPS_Parse_GGA(char* nmea_str, GPS_Data_t* gps_struct)
 {
 
   char *gps_fields[15];
-  uint8_t field_counter = 0;
 
   // parse string by commas
   char *token = (nmea_str, ",");
   
   // move tokens into their respective gps fields
-  while (token && field_counter < 15)
+  for (int i = 0; i < 15; i++)
   {
-    
+    gps_fields[i] = token + (i * 4);
   }
 
+  //convert lat and long from dec to degrees
+  // atof converts ASCII string to float
+  float lat_raw = atof(gps_fields[2]);
+  float long_raw = atof(gps_fields[4]);
+
+  // convert to int
+  float lat_raw = (int) (lat_raw / 100);
+  float long_raw = (int) (long_raw / 100);
+
+  // how to convert to actual degree?
+
+  // Get cardinal directions (south and west are considered neg in decimal degrees)
+  if (gps_fields[3][0] == 'S')
+  {
+    gps_struct->latitude  = -gps_struct->latitude;
+  }
+
+  if (gps_fields[5][0] == 'W') 
+  {
+    gps_struct->longitude = -gps_struct->longitude;
+  }
+
+  gps_struct -> altitude = atof(gps_fields[9]);
+  gps_struct -> satellites = atof(gps_fields[7]);
+  gps_struct -> fix_valid = atof(gps_fields[6]); // 1 if there is gps fix
 }
 
 void GPS_ProcessChar(uint8_t rx_byte)
@@ -136,7 +160,11 @@ void GPS_Poll(void) // MOVE THIS TO THE MAIN LOOP EVENTUALLY?
     // Blocks until 1 byte arrives (or timeout)
     if (HAL_UART_Receive(&UART7_Handler, &byte, 1, 10) == HAL_OK)
     {
-        GPS_ProcessChar(byte);
+      GPS_ProcessChar(byte);
+    }
+    else
+    {
+      Error_Handler();
     }
 }
 
