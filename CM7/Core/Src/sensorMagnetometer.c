@@ -226,17 +226,11 @@ void handler(void *argument)
 {
     for(;;)
     {
-<<<<<<< HEAD
         // readACC_Vector();
         // readMAG_Vector();
         // readGYRO_Vector();
         fillStruct();
         printIMU();
-=======
-        // sensorMagnetometer_readACC_Vector();
-        // sensorMagnetometer_readMAG_Vector();
-        //sensorMagnetometer_readGYRO_Vector();
->>>>>>> ade8274 (print statements to debug gps)
         vTaskDelay(pdMS_TO_TICKS(1000)); // Delay for demonstration purposes
     }
 }
@@ -354,12 +348,8 @@ void readVectorDynamic(uint8_t startReg, uint8_t bytes, const char *name, uint8_
         bytes,                   // number of bytes to read
         5000                    // timeout ms
     )) != HAL_OK) {
-<<<<<<< HEAD
         printf("%s Transmit FAILED, HAL status: %d, I2C error: 0x%lX\r\n", name, info, HAL_I2C_GetError(&I2C_BNO055_Handle));
         return;
-=======
-        //printf("%s Transmit FAILED, HAL status: %d, I2C error: 0x%lX\r\n", name, info, HAL_I2C_GetError(&I2C_BNO055_Handle));
->>>>>>> ade8274 (print statements to debug gps)
     }
 
     printf("%s: ", name);

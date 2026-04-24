@@ -96,26 +96,16 @@ void GPS_Parse_GGA(char* nmea_str, GPS_Data_t* gps_struct)
       printf("field[%d] = [%s]\r\n", i, gps_fields[i] ? gps_fields[i] : "NULL");
   }
 
-  //if (gps_fields[6] == NULL) return; // malformed
   if (gps_fields[6] == NULL) { printf("BAILED: field 6 null\r\n"); return; }
-  if (atoi(gps_fields[6]) == 0) { printf("BAILED: no fix, field6=[%s]\r\n", gps_fields[6]); return; }
   
-  printf("field[6] hex: 0x%02X 0x%02X\r\n", 
-    (uint8_t)gps_fields[6][0], 
-    (uint8_t)gps_fields[6][1]);
 
-  // Add this:
-  printf("PAST FIX CHECK: fix=%d\r\n", atoi(gps_fields[6]));
-
-  // EX lat or long: 4007.038 (DDDMM.MMMM)
-  // 40 degrees and 07.038 minutes
+  // DEBUG - Add this:
+  //printf("PAST FIX CHECK: fix=%d\r\n", atoi(gps_fields[6]));
 
   //convert lat and long from dec to degrees
   // atof converts ASCII string to float
   float lat_raw = atof(gps_fields[2]);
   float long_raw = atof(gps_fields[4]);
-
-  printf("lat_raw=%.5f  long_raw=%.5f\r\n", lat_raw, long_raw);
 
   // get degree in int
   int lat_deg = (int) (lat_raw / 100);
@@ -141,12 +131,19 @@ void GPS_Parse_GGA(char* nmea_str, GPS_Data_t* gps_struct)
   gps_struct -> satellites = atof(gps_fields[7]);
   gps_struct -> fix_valid = atof(gps_fields[6]); // 1 if there is gps fix
 
-  printf("FIX:%d  SATS:%d  LAT:%.6lf  LON:%.6lf  ALT:%.1f\r\n",
+  // convert to integer parts instead instead of printing float
+  int lat_d  = (int)gps_struct->latitude;
+  int lat_f  = (int)((gps_struct->latitude  - lat_d)  * 1000000);
+  int lon_d  = (int)gps_struct->longitude;
+  int lon_f  = (int)((gps_struct->longitude - lon_d)  * 1000000);
+  int alt    = (int)gps_struct->altitude;
+
+  printf("FIX:%d SATS:%d LAT:%d.%06d LON:%d.%06d ALT:%d\r\n",
     gps_struct->fix_valid,
     gps_struct->satellites,
-    gps_struct->latitude,
-    gps_struct->longitude,
-    gps_struct->altitude);
+    lat_d, lat_f,
+    lon_d, lon_f,
+    alt);
 }
 
 void GPS_ProcessChar(uint8_t rx_byte)
