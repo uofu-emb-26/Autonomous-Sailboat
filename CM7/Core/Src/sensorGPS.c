@@ -15,6 +15,8 @@ static char g_nmea_buffer[128];
 static int g_index = 0; 
 GPS_Data_t myGPS; // The actual data storage for NMEA06
 
+#define target_lat 40.768165
+#define target_long -111.846611
 
 /**
   * Initialize the hardware. CFG_COM1 and CFG_COM0 configuration pins
@@ -219,8 +221,21 @@ void GPS_Poll(void) // MOVE THIS TO THE MAIN LOOP EVENTUALLY?
 void sensorGPS_handler(void *argument) {
   vTaskDelay(pdMS_TO_TICKS(5000));  // give the module 2 seconds to boot  
   for(;;) {
-        //vTaskDelay(pdMS_TO_TICKS(1000)); // Delay for demonstration purposes
-        GPS_Poll();
-        vTaskDelay(pdMS_TO_TICKS(10));
+    GPS_Poll();
+
+    GPS_Data_t* gps_struct = &myGPS;
+
+    // Add some tolerance
+    if ((gps_struct -> latitude) < target_lat + 0.000001 || (gps_struct -> latitude) > target_lat - 0.000001)
+    {
+      if ((gps_struct -> longitude) < target_long + 0.000001 || (gps_struct -> longitude) > target_long - 0.000001)
+      {
+        // target lat and long reached
+        printf("MISSION SUCCESSFUL");
+        vTaskDelay(pdMS_TO_TICKS(10000));
+      }
     }
+
+    vTaskDelay(pdMS_TO_TICKS(10));
+}
 }
