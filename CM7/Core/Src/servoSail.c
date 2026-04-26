@@ -54,10 +54,15 @@ void servoSail_hardwareInit()
 
 void servoSail_handler(void *argument)
 {
-    for(;;)
-    {
-        vTaskDelay(pdMS_TO_TICKS(1000)); // Delay for demonstration purposes
-    }
+  for(;;)
+  {
+    servoSail_setAngle(-135);
+    vTaskDelay(pdMS_TO_TICKS(1000)); // Delay for demonstration purposes
+    servoSail_setAngle(0);
+    vTaskDelay(pdMS_TO_TICKS(1000)); // Delay for demonstration purposes
+    servoSail_setAngle(135);
+    vTaskDelay(pdMS_TO_TICKS(1000)); // Delay for demonstration purpose
+  }
 }
 
 void servoSail_setAngle(int16_t angle)

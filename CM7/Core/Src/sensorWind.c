@@ -91,7 +91,6 @@ static void sensorWind_uart4Init(void)
 
 void sensorWind_handler(void *argument)
 {
-    vTaskSuspend(NULL);
     for (;;)
     {
         float angle = read_wind_angle_360(SENSOR_ADDRESS);
@@ -107,6 +106,8 @@ void sensorWind_handler(void *argument)
             printf("Wind angle: %u.%u deg\r\n", degrees, tenths);
             servoSail_setAngle((degrees - 180) / -2);
         }
+
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 

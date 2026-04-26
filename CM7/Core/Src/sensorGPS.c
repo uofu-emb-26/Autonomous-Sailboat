@@ -221,5 +221,6 @@ void sensorGPS_handler(void *argument) {
   for(;;) {
         //vTaskDelay(pdMS_TO_TICKS(1000)); // Delay for demonstration purposes
         GPS_Poll();
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }

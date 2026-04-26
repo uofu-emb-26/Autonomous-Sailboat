@@ -80,7 +80,9 @@ int main(void)
   #endif
   
   hardware_init();
+  printf("tick after hardware_init: %lu\r\n", HAL_GetTick());
   rtos_init();
+  printf("tick after rtos_init: %lu\r\n", HAL_GetTick());
   vTaskStartScheduler();
 }
 
@@ -238,10 +240,12 @@ void rtos_init()
 {
   if ((semphr_button = xSemaphoreCreateBinary()) == NULL) { Error_Handler(); }
 
-  if (xTaskCreate(button_handler,             "buttonTask",             64,  NULL, osPriorityNormal,      &task_button)             != pdPASS) { Error_Handler(); }
+  if (xTaskCreate(button_handler,             "buttonTask",             256, NULL, osPriorityAboveNormal, &task_button)             != pdPASS) { Error_Handler(); }
   if (xTaskCreate(servoSail_handler,          "servoSailTask",          128, NULL, osPriorityNormal,      &task_servoSail)          != pdPASS) { Error_Handler(); }
   if (xTaskCreate(servoRudder_handler,        "servoRudderTask",        128, NULL, osPriorityNormal,      &task_servoRudder)        != pdPASS) { Error_Handler(); }
-  if (xTaskCreate(sensorWind_handler,         "sensorWindTask",         512, NULL, osPriorityAboveNormal, &task_sensorWind)         != pdPASS) { Error_Handler(); }
-  if (xTaskCreate(sensorMagnetometer_handler, "sensorMagnetometerTask", 128, NULL, osPriorityAboveNormal, &task_sensorMagnetometer) != pdPASS) { Error_Handler(); }
-  if (xTaskCreate(sensorGPS_handler,          "sensorGPSTask",          512, NULL, osPriorityAboveNormal, &task_sensorGPS)          != pdPASS) { Error_Handler(); }
+  if (xTaskCreate(sensorWind_handler,         "sensorWindTask",         512, NULL, osPriorityNormal, &task_sensorWind)         != pdPASS) { Error_Handler(); }
+  if (xTaskCreate(sensorMagnetometer_handler, "sensorMagnetometerTask", 256, NULL, osPriorityNormal, &task_sensorMagnetometer) != pdPASS) { Error_Handler(); }
+  if (xTaskCreate(sensorGPS_handler,          "sensorGPSTask",          512, NULL, osPriorityBelowNormal, &task_sensorGPS)     != pdPASS) { Error_Handler(); }
+
+  button_activateControlMode(CONTROL_MODE_SERVO_SAIL);
 }

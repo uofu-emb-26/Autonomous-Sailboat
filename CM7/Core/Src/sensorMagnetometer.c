@@ -1,5 +1,6 @@
 #include "main.h"
 #include "stm32h7xx_hal_i2c.h"
+#include <stdbool.h>
 #include <stdint.h>
 #include "sensorMagnetometer.h"
 #include <math.h>
@@ -100,7 +101,10 @@ IMU_Data IMU = {0};
 TaskHandle_t task_sensorMagnetometer;
 I2C_HandleTypeDef I2C_BNO055_Handle;
 uint8_t currentMode;
-static uint8_t  isCalibrated = TRUE;
+int16_t servoAngle;
+static sensorMagnetometerMode_t magnetometerTaskMode = SENSOR_MAG_MODE_YAW;
+static uint8_t isCalibrated = FALSE;
+
 static uint8_t savedOffsets[CALIB_OFFSET_SIZE] = {
     0xDD, 0xFF, 0xCC, 0xFF, 0xDD, 0xFF,   // accel X, Y, Z
     0xE2, 0xFF, 0x01, 0x00, 0xEF, 0xFD,   // mag   X, Y, Z
@@ -179,25 +183,24 @@ void sensorMagnetometer_hardwareInit()
 
     readWhoAmI();
     readSelfTest();
-    currentMode = BNO055_OPR_MODE_NDOF; // USER: only change this line to set mode
+    currentMode = BNO055_OPR_MODE_AMG; // USER: only change this line to set mode
 
     if (!(currentMode >= BNO055_OPR_MODE_IMUPLUS && currentMode <= BNO055_OPR_MODE_NDOF))
     {
         // Non-fusion mode — just set it, no calibration needed
         setOperationMode(currentMode);
     }
-    if (isCalibrated) {
+    else if (isCalibrated) {
         // Step 1: Must be in CONFIG mode to write offsets (chip powers on here anyway)
         setOperationMode(BNO055_OPR_MODE_CONFIG);
 
         // Step 2: Write saved offsets — gives fusion algorithm a head start
         loadCalibrationData();
 
-        // Step 3: Enter fusion mode — algorithm starts running and will
+        // Step 3: Enter fusion mode — algorithm starts running and will calibrate
         setOperationMode(BNO055_OPR_MODE_NDOF);
 
-        // Step 4: Still poll CALIB_STAT — but with good offsets loaded
-        // this should reach 3/3/3 in seconds, not minutes
+        // Step 4: poll calibration status but with offsets loaded
         printf("Offsets loaded — waiting for fusion algorithm to confirm calibration...\r\n");
         while (checkCalibration(1) == 0)
         {
@@ -223,7 +226,7 @@ void sensorMagnetometer_hardwareInit()
 
         // saveCalibrationOffsets switches to CONFIG_MODE internally to read offsets
         saveCalibrationData();
-        HAL_Delay(10000);
+        HAL_Delay(1000);
         isCalibrated = TRUE;
         printf("BNO055 fully calibrated\r\n");
 
@@ -239,6 +242,73 @@ void setOperationMode(uint8_t mode)
     currentMode = mode;
 }
 
+void sensorMagnetometer_setMode(sensorMagnetometerMode_t mode)
+{
+    magnetometerTaskMode = mode;
+}
+
+sensorMagnetometerMode_t sensorMagnetometer_getMode(void)
+{
+    return magnetometerTaskMode;
+}
+
+static void sensorMagnetometer_readEulerDegrees(int16_t *roll, int16_t *pitch, int16_t *yaw)
+{
+    float w = IMU.w / 16384.0f;
+    float x = IMU.x / 16384.0f;
+    float y = IMU.y / 16384.0f;
+    float z = IMU.z / 16384.0f;
+
+    *roll = (int16_t)(atan2f(2.0f * (w*x + y*z), 1.0f - 2.0f * (x*x + y*y)) * (180.0f / M_PI));
+    *pitch = (int16_t)(asinf(2.0f * (w*y - z*x)) * (180.0f / M_PI));
+    *yaw = (int16_t)(atan2f(2.0f * (w*z + x*y), 1.0f - 2.0f * (y*y + z*z)) * (180.0f / M_PI));
+}
+
+static void sensorMagnetometer_runYawMode(void)
+{
+    int16_t roll;
+    int16_t pitch;
+    int16_t yaw;
+
+    fillStruct();
+    sensorMagnetometer_readEulerDegrees(&roll, &pitch, &yaw);
+    printf("Mag yaw: %d.%04d deg\r\n",
+           FLOAT_INT(yaw),
+           FLOAT_FRAC(yaw));
+    servoAngle = yaw;
+    vTaskDelay(pdMS_TO_TICKS(500));
+}
+
+static void sensorMagnetometer_runPitchMode(void)
+{
+    int16_t roll;
+    int16_t pitch;
+    int16_t yaw;
+
+    fillStruct();
+    sensorMagnetometer_readEulerDegrees(&roll, &pitch, &yaw);
+    printf("Mag pitch: %d.%04d deg\r\n",
+           FLOAT_INT(pitch),
+           FLOAT_FRAC(pitch));
+    servoAngle = pitch;
+    vTaskDelay(pdMS_TO_TICKS(500));
+}
+
+static void sensorMagnetometer_runRollMode(void)
+{
+    int16_t roll;
+    int16_t pitch;
+    int16_t yaw;
+
+    fillStruct();
+    sensorMagnetometer_readEulerDegrees(&roll, &pitch, &yaw);
+    printf("Mag roll: %d.%04d deg\r\n",
+           FLOAT_INT(roll),
+           FLOAT_FRAC(roll));
+    servoAngle = roll;
+    vTaskDelay(pdMS_TO_TICKS(500));
+}
+
 // 0xAA is the start byte
 
 /**
@@ -248,12 +318,25 @@ void sensorMagnetometer_handler(void *argument)
 {
     for(;;)
     {
-        // readACC_Vector();
-        // readMAG_Vector();
-        // readGYRO_Vector();
-        fillStruct();
-        vTaskDelay(pdMS_TO_TICKS(1000)); // Delay for demonstration purposes
-        printIMU();
+        switch (sensorMagnetometer_getMode())
+        {
+            case SENSOR_MAG_MODE_YAW:
+                sensorMagnetometer_runYawMode();
+                break;
+
+            case SENSOR_MAG_MODE_PITCH:
+                sensorMagnetometer_runPitchMode();
+                break;
+
+            case SENSOR_MAG_MODE_ROLL:
+                sensorMagnetometer_runRollMode();
+                break;
+
+            default:
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                break;
+        }
+        servoSail_setAngle(servoAngle);
     }
 }
 
@@ -466,7 +549,7 @@ uint8_t checkCalibration(int onlySysGyro) {
 
     // All three must be fully calibrated
     if (onlySysGyro) {
-    return (sys_cal == 3 && gyro_cal == 3);
+        return (sys_cal == 3 && gyro_cal == 3);
     }
     return (sys_cal == 3 && acc_cal == 3 && mag_cal == 3 && gyro_cal == 3);
 }
