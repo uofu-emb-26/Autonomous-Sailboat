@@ -6,7 +6,7 @@
  * Pulse range: 1000-2000 us maps to -45..+45 degrees */
 
 #define SERVO_MIN_ANGLE  -45
-
+#define SERVO_MAX_ANGLE   45
 #define SERVO_MIN_PULSE  1000
 #define SERVO_MAX_PULSE  2000
 #define SERVO_CENTER_PULSE ((SERVO_MIN_PULSE + SERVO_MAX_PULSE) / 2)

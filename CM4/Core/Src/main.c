@@ -175,7 +175,8 @@ int main(void)
   LoRa_StartRX();
 
   static int8_t  rudder_angle = 0;
-  static uint8_t led_status   = 0;  /* bitmask: bit0=green, bit1=red, bit2=yellow */
+  /* LoRa_init() toggles yellow LED once for version check, so yellow starts ON */
+  static uint8_t led_status   = 0x04;  /* bitmask: bit0=green, bit1=red, bit2=yellow */
   static uint8_t tx_seq       = 0;
 
   TelemetryPacket_t pkt = {

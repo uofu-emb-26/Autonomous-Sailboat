@@ -392,7 +392,7 @@ int LoRa_init(void){
     SPI_tx_byte(REG_MODEM_CFG_1, 0x72);
     HAL_Delay(1);
 
-    SPI_tx_byte(REG_MODEM_CFG_2, 0x80); // crc payload off, sf 8
+    SPI_tx_byte(REG_MODEM_CFG_2, 0x84); // sf 8, crc on
     HAL_Delay(1);
 
     SPI_tx_byte(REG_MODEM_CFG_3, 0x04);
