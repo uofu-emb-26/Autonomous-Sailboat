@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "lora.h"
+#include "servoRudder.h"
 #include <stdint.h>
 #include <string.h>
 
@@ -157,6 +158,9 @@ int main(void)
 
   Debug_LED_Init();
 
+  servoRudder_init();
+
+
 
   // Debug_LED_Toggle('y');  // toggle yellow LED to indicate SPI initialized
 
@@ -166,6 +170,8 @@ int main(void)
       Debug_LED_Toggle('o');
   }
   LoRa_StartRX();
+
+  static int8_t rudder_angle = 0;
 
   TelemetryPacket_t pkt = {
       .lat        = 40.7128f,
@@ -199,7 +205,22 @@ int main(void)
           uint8_t len = LoRa_GetCmd(cmd);
           if (len > 0) {
               printf("[RX] cmd len=%d byte0=0x%02X\r\n", len, cmd[0]);
-              /* TODO: dispatch cmd[0] to rudder/sail servo */
+
+              int8_t delta = 0;
+              if      (cmd[0] == 'q') delta = +20;
+              else if (cmd[0] == 'e') delta = -20;
+              else if (cmd[0] == 'a') delta = +10;
+              else if (cmd[0] == 'd') delta = -10;
+              else if (cmd[0] == 'z') delta = +5;
+              else if (cmd[0] == 'c') delta = -5;
+
+              if (delta != 0) {
+                rudder_angle += delta;
+                servoRudder_setAngle(rudder_angle);
+                char ack[50];
+                snprintf(ack, sizeof(ack), "Rudder -> %d deg", rudder_angle);
+                LoRa_Send((uint8_t *)ack, strlen(ack));
+              }
           }
       }
   }
