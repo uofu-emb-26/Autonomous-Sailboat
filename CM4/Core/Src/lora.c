@@ -412,33 +412,19 @@ int LoRa_init(void){
 }
 
 void LoRa_Send(uint8_t *data, uint8_t len){
-    SPI_tx_byte(REG_OP_MODE, 0x81);
+    if (s_state == LORA_STATE_TX) return;   /* previous TX still in flight */
+
+    SPI_tx_byte(REG_OP_MODE, 0x81);         /* standby (exits RX if active) */
     HAL_Delay(1);
 
     SPI_tx_byte(REG_FIFO_ADDR_PTR, 0x00);
-    HAL_Delay(1);
-
     SPI_FIFO_tx(data, len);
     SPI_tx_byte(REG_PAYLOAD_LENGTH, len);
-    // printf("[TX] payload_len reg readback: %d\r\n", SPI_rx_byte(REG_PAYLOAD_LENGTH));
-    SPI_tx_byte(REG_IRQ_FLAGS, 0xff);
+    SPI_tx_byte(REG_IRQ_FLAGS, 0xFF);        /* clear stale flags */
+    SPI_tx_byte(REG_DIO_MAPPING_1, 0x40);   /* DIO0 = TxDone */
 
-    SPI_tx_byte(REG_OP_MODE, 0x83);
-    // printf("[TX] TX mode triggered, waiting for TxDone...\r\n");
-
-    uint32_t start = HAL_GetTick();
-    while(!(SPI_rx_byte(REG_IRQ_FLAGS) & 0x08)){
-        if (HAL_GetTick() - start > 2000)
-        {
-            // printf("[TX] timeout! IRQ flags: 0x%02X\r\n", SPI_rx_byte(REG_IRQ_FLAGS));
-            break;
-        }
-    }
-
-    // printf("[TX] done. IRQ flags: 0x%02X\r\n", SPI_rx_byte(REG_IRQ_FLAGS));
-    // clear irq flags and return to standby
-    SPI_tx_byte(REG_IRQ_FLAGS, 0xff);
-    SPI_tx_byte(REG_OP_MODE, 0x81);
+    s_state = LORA_STATE_TX;
+    SPI_tx_byte(REG_OP_MODE, 0x83);         /* TX — returns immediately, DIO0 fires when done */
 }
 
 static void SPI_FIFO_rx(uint8_t *buf, uint8_t len)
@@ -452,66 +438,71 @@ static void SPI_FIFO_rx(uint8_t *buf, uint8_t len)
 }
 
 /*
-   Listen for an incoming LoRa packet (continuous RX mode, polling).
-   Blocks until a packet arrives or timeout_ms elapses.
-
-   Returns the number of bytes received, or -1 on CRC error, or 0 on timeout.
-   Received bytes are written into buf (caller must provide at least 255 bytes).
+   Put the radio into continuous RX mode. Returns immediately.
+   The radio stays listening until a packet arrives or LoRa_Send() is called.
+   DIO0 (PG9) fires a rising-edge EXTI when RxDone — the ISR sets dio0_flag,
+   and the main loop calls LoRa_ProcessDIO0() to read the packet.
 */
-int LoRa_Receive(uint8_t *buf, uint32_t timeout_ms)
+void LoRa_StartRX(void)
 {
-    // standby before reconfiguring
-    SPI_tx_byte(REG_OP_MODE, 0x81);
+    SPI_tx_byte(REG_OP_MODE, 0x81);         /* standby first — required before any mode switch */
     HAL_Delay(1);
 
-    // point FIFO address ptr to RX base
-    SPI_tx_byte(REG_FIFO_ADDR_PTR, 0x00);
+    SPI_tx_byte(REG_FIFO_ADDR_PTR, 0x00);   /* reset FIFO pointer to base */
+    SPI_tx_byte(REG_DIO_MAPPING_1, 0x00);   /* DIO0 = RxDone (0x40 would be TxDone) */
+    SPI_tx_byte(REG_IRQ_FLAGS, 0xFF);        /* clear any leftover flags or DIO0 won't re-fire */
 
-    // map DIO0 to RxDone (THIS WILL BE USED LATER SO WE CAN PUT THE STM INTO SLEEP AND WFI ON THE GPIO PIN FOR AN INTERRUPT -harrison)
-    SPI_tx_byte(REG_DIO_MAPPING_1, 0x00);
+    s_state = LORA_STATE_RX;
+    SPI_tx_byte(REG_OP_MODE, 0x85);         /* continuous RX — radio listens indefinitely */
+}
 
-    // clear IRQ flags
-    SPI_tx_byte(REG_IRQ_FLAGS, 0xFF);
+/* Called from the main loop when dio0_flag is set (DIO0 EXTI fired on PG9).
+   Checks s_state to know whether this was a TxDone or RxDone event.
 
-    // enter continuous RX mode
-    SPI_tx_byte(REG_OP_MODE, 0x85);
-    // printf("[RX] listening...\r\n");
-
-    // poll for RxDone (CHANGE TO INTERRUPT FOR LOW POWER LATER - harrison)
-    uint32_t start = HAL_GetTick();
-    while (!(SPI_rx_byte(REG_IRQ_FLAGS) & IRQ_RX_DONE)) {
-        if (HAL_GetTick() - start > timeout_ms) {
-            printf("[RX] timeout\r\n");
-            SPI_tx_byte(REG_OP_MODE, 0x81);
-            return 0;
-        }
-    }
-
+   TxDone: clears flags, goes back to RX.
+   RxDone: reads IRQ flags, checks CRC, seeks FIFO to where this packet landed
+           (the chip writes each packet at a variable offset — RegFifoRxCurrentAddr
+           tells us where), burst-reads the bytes into s_rx_buf, sets s_rx_ready,
+           then goes back to RX so we're listening again immediately.
+*/
+void LoRa_ProcessDIO0(void)
+{                                   
     uint8_t irq = SPI_rx_byte(REG_IRQ_FLAGS);
-    // printf("[RX] done. IRQ flags: 0x%02X\r\n", irq);
+    SPI_tx_byte(REG_IRQ_FLAGS, 0xFF);        /* clear flags before touching FIFO */
 
-    // check for CRC error
-    if (irq & IRQ_PAYLOAD_CRC_ERROR) {
-        printf("[RX] CRC error, discarding\r\n");
-        SPI_tx_byte(REG_IRQ_FLAGS, 0xFF);
-        SPI_tx_byte(REG_OP_MODE, 0x81);
-        return -1;
+    if (s_state == LORA_STATE_TX) {
+        LoRa_StartRX();
+        return;
     }
 
-    // find where in the FIFO the packet landed and how long it is
-    uint8_t pkt_addr = SPI_rx_byte(REG_FIFO_RX_CURRENT_ADDR);
-    uint8_t pkt_len  = SPI_rx_byte(REG_RX_NB_BYTES);
-    // printf("[RX] pkt_addr=0x%02X len=%d\r\n", pkt_addr, pkt_len);
+    if (s_state == LORA_STATE_RX) {
+        if (irq & IRQ_PAYLOAD_CRC_ERROR) {
+            LoRa_StartRX();
+            return;
+        }
+        if (irq & IRQ_RX_DONE) {
+            uint8_t pkt_addr = SPI_rx_byte(REG_FIFO_RX_CURRENT_ADDR);
+            uint8_t pkt_len  = SPI_rx_byte(REG_RX_NB_BYTES);
+            if (pkt_len > sizeof(s_rx_buf)) pkt_len = sizeof(s_rx_buf);
 
-    // seek FIFO pointer to the packet start and burst-read
-    SPI_tx_byte(REG_FIFO_ADDR_PTR, pkt_addr);
-    SPI_FIFO_rx(buf, pkt_len);
+            SPI_tx_byte(REG_FIFO_ADDR_PTR, pkt_addr);
+            SPI_FIFO_rx(s_rx_buf, pkt_len);
+            s_rx_len   = pkt_len;
+            s_rx_ready = 1;
+        }
+        LoRa_StartRX();
+    }
+}
 
-    // printf("[RX] received %d bytes: ", pkt_len);
-
-    // clear flags and return to standby
-    SPI_tx_byte(REG_IRQ_FLAGS, 0xFF);
-    SPI_tx_byte(REG_OP_MODE, 0x81);
-
-    return pkt_len;
+/*
+   Copy the last received packet into buf.
+   Returns byte count, or 0 if no new packet has arrived since the last call.
+   Clears s_rx_ready so each packet is only returned once.
+*/
+uint8_t LoRa_GetCmd(uint8_t *buf)
+{
+    if (!s_rx_ready) return 0;
+    s_rx_ready = 0;
+    for (uint8_t i = 0; i < s_rx_len; i++) buf[i] = s_rx_buf[i];
+    return s_rx_len;
 }

@@ -60,6 +60,7 @@
 /* USER CODE BEGIN EV */
 extern TIM_HandleTypeDef htim6;
 extern volatile uint8_t  tx_flag;
+extern volatile uint8_t  dio0_flag;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -214,6 +215,18 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     {
         tx_flag = 1;
     }
+}
+
+/* DIO0 on PG9 — fires on rising edge for both TxDone and RxDone */
+void EXTI9_5_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_9);
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if (GPIO_Pin == GPIO_PIN_9)
+        dio0_flag = 1;
 }
 
 /* USER CODE END 1 */
