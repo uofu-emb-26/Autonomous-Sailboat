@@ -235,9 +235,6 @@ int main(void)
               if (delta != 0) {
                 rudder_angle += delta;
                 servoRudder_setAngle(rudder_angle);
-                char ack[50];
-                snprintf(ack, sizeof(ack), "Rudder -> %d deg", rudder_angle);
-                LoRa_Send((uint8_t *)ack, strlen(ack));
               }
           }
       }
