@@ -235,6 +235,8 @@ int main(void)
 
               if (delta != 0) {
                 rudder_angle += delta;
+                if (rudder_angle >  45) rudder_angle =  45;
+                if (rudder_angle < -45) rudder_angle = -45;
                 servoRudder_setAngle(rudder_angle);
               }
           }
