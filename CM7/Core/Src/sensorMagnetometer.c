@@ -101,6 +101,7 @@ IMU_Data IMU = {0};
 TaskHandle_t task_sensorMagnetometer;
 I2C_HandleTypeDef I2C_BNO055_Handle;
 uint8_t currentMode;
+uint8_t targetMode;
 int16_t servoAngle;
 static sensorMagnetometerMode_t magnetometerTaskMode = SENSOR_MAG_MODE_YAW;
 static uint8_t isCalibrated = FALSE;
@@ -183,12 +184,13 @@ void sensorMagnetometer_hardwareInit()
 
     readWhoAmI();
     readSelfTest();
-    currentMode = BNO055_OPR_MODE_AMG; // USER: only change this line to set mode
+    currentMode = BNO055_OPR_MODE_CONFIG; // USER: DON't change this line
+    targetMode = BNO055_OPR_MODE_NDOF; // USER: only change this line to set mode
 
-    if (!(currentMode >= BNO055_OPR_MODE_IMUPLUS && currentMode <= BNO055_OPR_MODE_NDOF))
+    if (!(targetMode >= BNO055_OPR_MODE_IMUPLUS && targetMode <= BNO055_OPR_MODE_NDOF))
     {
         // Non-fusion mode — just set it, no calibration needed
-        setOperationMode(currentMode);
+        setOperationMode(targetMode);
     }
     else if (isCalibrated) {
         // Step 1: Must be in CONFIG mode to write offsets (chip powers on here anyway)
@@ -198,7 +200,7 @@ void sensorMagnetometer_hardwareInit()
         loadCalibrationData();
 
         // Step 3: Enter fusion mode — algorithm starts running and will calibrate
-        setOperationMode(BNO055_OPR_MODE_NDOF);
+        setOperationMode(targetMode);
 
         // Step 4: poll calibration status but with offsets loaded
         printf("Offsets loaded — waiting for fusion algorithm to confirm calibration...\r\n");
@@ -213,7 +215,7 @@ void sensorMagnetometer_hardwareInit()
         // First boot in fusion mode — must set fusion mode FIRST so the calibration
         // algorithm runs, then poll until all three sensors reach 3/3
 
-        setOperationMode(currentMode);
+        setOperationMode(targetMode);
         HAL_Delay(20);
 
         printf("Move sensor in figure-8 for mag, hold 6 orientations for acc, keep still for gyro\r\n");
@@ -230,8 +232,8 @@ void sensorMagnetometer_hardwareInit()
         isCalibrated = TRUE;
         printf("BNO055 fully calibrated\r\n");
 
-        // Restore fusion mode (save left chip in CONFIG_MODE)
-        setOperationMode(currentMode);
+        // Restore fusion mode (saveCalibrationData() left chip in CONFIG_MODE)
+        setOperationMode(targetMode);
     }
 }
 
@@ -276,7 +278,6 @@ static void sensorMagnetometer_runYawMode(void)
            FLOAT_INT(yaw),
            FLOAT_FRAC(yaw));
     servoAngle = yaw;
-    vTaskDelay(pdMS_TO_TICKS(500));
 }
 
 static void sensorMagnetometer_runPitchMode(void)
@@ -290,8 +291,7 @@ static void sensorMagnetometer_runPitchMode(void)
     printf("Mag pitch: %d.%04d deg\r\n",
            FLOAT_INT(pitch),
            FLOAT_FRAC(pitch));
-    servoAngle = pitch;
-    vTaskDelay(pdMS_TO_TICKS(500));
+     servoAngle = (int16_t)((int32_t)pitch * 3 / 2);
 }
 
 static void sensorMagnetometer_runRollMode(void)
@@ -306,7 +306,6 @@ static void sensorMagnetometer_runRollMode(void)
            FLOAT_INT(roll),
            FLOAT_FRAC(roll));
     servoAngle = roll;
-    vTaskDelay(pdMS_TO_TICKS(500));
 }
 
 // 0xAA is the start byte
@@ -318,6 +317,14 @@ void sensorMagnetometer_handler(void *argument)
 {
     for(;;)
     {
+        uint8_t actualMode = 0;
+        HAL_I2C_Mem_Read(&I2C_BNO055_Handle, BNO055_ADDR << 1,
+                        BNO055_OPR_MODE, I2C_MEMADD_SIZE_8BIT,
+                        &actualMode, 1, 1000);
+        printf("Chip OPR_MODE is %s: 0x%02X | Expected = 0x%02X\r\n", 
+            actualMode == targetMode ? "CORRECT" : "INCORRECT",
+            actualMode, targetMode);
+
         switch (sensorMagnetometer_getMode())
         {
             case SENSOR_MAG_MODE_YAW:
@@ -414,7 +421,7 @@ static void BNO055_readVector(uint8_t startReg, const char *name, int16_t *xData
         6,                      // read 6 bytes (LSB+MSB for X, Y, Z)
         5000                    // timeout ms
     )) != HAL_OK) {
-        //printf("%s Transmit FAILED, HAL status: %d, I2C error: 0x%lX\r\n", name, info, HAL_I2C_GetError(&I2C_BNO055_Handle));
+        printf("%s Transmit FAILED, HAL status: %d, I2C error: 0x%lX\r\n", name, info, HAL_I2C_GetError(&I2C_BNO055_Handle));
     }
 
     int16_t x = (int16_t)((data[1] << 8) | data[0]);

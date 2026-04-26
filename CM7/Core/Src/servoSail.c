@@ -57,17 +57,20 @@ void servoSail_handler(void *argument)
 {
   for (;;)
   {
-    float wind = read_wind_angle_360(SENSOR_ADDRESS);
-    if (wind < 0.0f) {
+    uint16_t wind = (uint16_t)(read_wind_angle_360(SENSOR_ADDRESS));
+
+    if (wind == 0xFFFF) {
         vTaskDelay(pdMS_TO_TICKS(100));
         continue;
     }
 
-    float centered = wind - 180.0f;
-    int16_t sail_angle = (int16_t)(centered / 2.0f);
+    // servo = 225 - wind
+    // Valid range: wind 90-360 → servo 135 to -135
+    // Invalid range: wind 0-89 → computes >135, clamped by setAngle
+    int16_t sail_angle = (int16_t)(225 - (int16_t)wind + 45);
 
     servoSail_setAngle(sail_angle);
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(pdMS_TO_TICKS(1));  
   }
 }
 void servoSail_setAngle(int16_t angle)

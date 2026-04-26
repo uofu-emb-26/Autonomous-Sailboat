@@ -1,8 +1,10 @@
 #ifndef SENSOR_WIND_H
 #define SENSOR_WIND_H
 
+#include "FreeRTOS.h"
+#include "task.h" 
 #include <stdint.h>
-#include "cmsis_os2.h"  // for TaskHandle_t
+#include "cmsis_os2.h"  
 
 #define SENSOR_ADDRESS 0x02  // defined once here, remove from .c
 
