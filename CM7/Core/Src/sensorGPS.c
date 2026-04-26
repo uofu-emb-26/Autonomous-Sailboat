@@ -226,14 +226,17 @@ void sensorGPS_handler(void *argument) {
     GPS_Data_t* gps_struct = &myGPS;
 
     // Add some tolerance
-    if ((gps_struct -> latitude) < target_lat + 0.000001 || (gps_struct -> latitude) > target_lat - 0.000001)
+    double lat_diff  = gps_struct->latitude  - target_lat;
+    double lon_diff  = gps_struct->longitude - target_long;
+
+    // Make negative values positive (absolute value)
+    if (lat_diff  < 0) lat_diff  = -lat_diff;
+    if (lon_diff < 0) lon_diff = -lon_diff;
+
+    if (lat_diff < 0.0001 && lon_diff < 0.0001)
     {
-      if ((gps_struct -> longitude) < target_long + 0.000001 || (gps_struct -> longitude) > target_long - 0.000001)
-      {
-        // target lat and long reached
-        printf("MISSION SUCCESSFUL");
+        printf("MISSION SUCCESSFUL\r\n");
         vTaskDelay(pdMS_TO_TICKS(10000));
-      }
     }
 
     vTaskDelay(pdMS_TO_TICKS(10));
