@@ -1,6 +1,7 @@
-
-#include "main.h"
 #include "servoSail.h"
+#include "sensorWind.h"  
+#include "main.h"
+#include "stm32h7xx_hal_tim.h"
 
 #define SERVO_CLOCK_FREQUENCY_HZ 1000000
 #define SERVO_PWM_FREQUENCY_HZ 50
@@ -54,17 +55,21 @@ void servoSail_hardwareInit()
 
 void servoSail_handler(void *argument)
 {
-  for(;;)
+  for (;;)
   {
-    servoSail_setAngle(-135);
-    vTaskDelay(pdMS_TO_TICKS(1000)); // Delay for demonstration purposes
-    servoSail_setAngle(0);
-    vTaskDelay(pdMS_TO_TICKS(1000)); // Delay for demonstration purposes
-    servoSail_setAngle(135);
-    vTaskDelay(pdMS_TO_TICKS(1000)); // Delay for demonstration purpose
+    float wind = read_wind_angle_360(SENSOR_ADDRESS);
+    if (wind < 0.0f) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+        continue;
+    }
+
+    float centered = wind - 180.0f;
+    int16_t sail_angle = (int16_t)(centered / 2.0f);
+
+    servoSail_setAngle(sail_angle);
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
-
 void servoSail_setAngle(int16_t angle)
 {
     if (angle < SERVO_MIN_ANGLE) angle = SERVO_MIN_ANGLE;

@@ -1,41 +1,25 @@
-#include "cmsis_os2.h"
-#include "main.h"
+// sensorWind.c
 #include "sensorWind.h"
-#include "stm32h755xx.h"
-#include "stm32h7xx_hal_def.h"
-#include "stm32h7xx_hal_gpio_ex.h"
+#include "servoSail.h"   // include here, not in the header
+#include "main.h"
 #include "stm32h7xx_hal_uart.h"
-#include <stdint.h>
+#include "stm32h7xx_hal_gpio_ex.h"
 #include <stdbool.h>
 #include <stdio.h>
-#include "servoSail.h"
 
-/* ------------------------------------------------------------------ */
-/* Config                                                               */
-/* ------------------------------------------------------------------ */
+// SENSOR_ADDRESS comes from sensorWind.h now — don't redefine here
 
-#define SENSOR_ADDRESS  0x02  // Default per protocol spec
+TaskHandle_t       task_sensorWind;
+UART_HandleTypeDef UART4_Handler = {0};
 
-/* ------------------------------------------------------------------ */
-/* Globals                                                              */
-/* ------------------------------------------------------------------ */
-TaskHandle_t        task_sensorWind;
-UART_HandleTypeDef  UART4_Handler = {0};
-
-/* ------------------------------------------------------------------ */
-/* Forward declarations                                                 */
-/* ------------------------------------------------------------------ */
-static void     sensorWind_uart4Init(void);
-
-static uint16_t crc16(const uint8_t *buf, int len);
-static void     append_crc(uint8_t *buf, int len);
-static bool     check_crc(const uint8_t *buf, int len);
-static void     flush_rx(void);
-static bool     read_bytes(uint8_t *buf, size_t len, uint32_t timeout_ms);
-static float    read_wind_angle_360(uint8_t addr);
-static int      read_wind_dir_16(uint8_t addr);
+static void        sensorWind_uart4Init(void);
+static uint16_t    crc16(const uint8_t *buf, int len);
+static void        append_crc(uint8_t *buf, int len);
+static bool        check_crc(const uint8_t *buf, int len);
+static void        flush_rx(void);
+static bool        read_bytes(uint8_t *buf, size_t len, uint32_t timeout_ms);
+static int         read_wind_dir_16(uint8_t addr); // static — nothing external calls this
 static const char* direction_name(int val);
-
 
 // Hardware init                                                       
 void sensorWind_hardwareInit(void)
@@ -234,7 +218,7 @@ static bool read_bytes(uint8_t *buf, size_t len, uint32_t timeout_ms)
 /* ------------------------------------------------------------------ */
 
 // Returns wind angle in degrees (e.g. 65.5f), or -1.0f on error
-static float read_wind_angle_360(uint8_t addr)
+float read_wind_angle_360(uint8_t addr)
 {
     // Build Modbus read command for register 0x0000 (360° angle)
     uint8_t cmd[8] = {addr, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00};
@@ -275,7 +259,7 @@ static float read_wind_angle_360(uint8_t addr)
 }
 
 // Returns 0-15 for 16 wind directions, or -1 on error
-static int read_wind_dir_16(uint8_t addr)
+int read_wind_dir_16(uint8_t addr)
 {
     // Build Modbus read command for register 0x0001 (16-direction)
     uint8_t cmd[8] = {addr, 0x03, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00};
