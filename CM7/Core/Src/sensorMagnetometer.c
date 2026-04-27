@@ -106,7 +106,7 @@ uint8_t currentMode;
 uint8_t targetMode;
 int16_t servoAngle;
 static volatile sensorMagnetometerMode_t magnetometerTaskMode = SENSOR_MAG_MODE_YAW;
-static uint8_t isCalibrated = FALSE;
+static uint8_t isCalibrated = TRUE;
 
 #define SENSOR_MAG_ACTIVE_PERIOD_MS 1
 #define SENSOR_MAG_IDLE_PERIOD_MS 20
@@ -279,9 +279,9 @@ static void sensorMagnetometer_runYawMode(void)
 
     fillStruct();
     sensorMagnetometer_readEulerDegrees(&roll, &pitch, &yaw);
-    printf("Mag yaw: %d.%04d deg\r\n",
-           FLOAT_INT(yaw),
-           FLOAT_FRAC(yaw));
+    // printf("Mag yaw: %d.%04d deg\r\n",
+    //        FLOAT_INT(yaw),
+    //        FLOAT_FRAC(yaw));
     servoAngle = yaw;
 }
 
@@ -293,9 +293,9 @@ static void sensorMagnetometer_runPitchMode(void)
 
     fillStruct();
     sensorMagnetometer_readEulerDegrees(&roll, &pitch, &yaw);
-    printf("Mag pitch: %d.%04d deg\r\n",
-           FLOAT_INT(pitch),
-           FLOAT_FRAC(pitch));
+    // printf("Mag pitch: %d.%04d deg\r\n",
+    //        FLOAT_INT(pitch),
+    //        FLOAT_FRAC(pitch));
      servoAngle = (int16_t)((int32_t)pitch * 3 / 2);
 }
 
@@ -307,9 +307,9 @@ static void sensorMagnetometer_runRollMode(void)
 
     fillStruct();
     sensorMagnetometer_readEulerDegrees(&roll, &pitch, &yaw);
-    printf("Mag roll: %d.%04d deg\r\n",
-           FLOAT_INT(roll),
-           FLOAT_FRAC(roll));
+    // printf("Mag roll: %d.%04d deg\r\n",
+    //        FLOAT_INT(roll),
+    //        FLOAT_FRAC(roll));
     servoAngle = roll;
 }
 
@@ -335,9 +335,9 @@ void sensorMagnetometer_handler(void *argument)
         HAL_I2C_Mem_Read(&I2C_BNO055_Handle, BNO055_ADDR << 1,
                         BNO055_OPR_MODE, I2C_MEMADD_SIZE_8BIT,
                         &actualMode, 1, 1000);
-        printf("Chip OPR_MODE is %s: 0x%02X | Expected = 0x%02X\r\n", 
-            actualMode == targetMode ? "CORRECT" : "INCORRECT",
-            actualMode, targetMode);
+        // printf("Chip OPR_MODE is %s: 0x%02X | Expected = 0x%02X\r\n", 
+        //     actualMode == targetMode ? "CORRECT" : "INCORRECT",
+        //     actualMode, targetMode);
 
         switch (sensorMagnetometer_getMode())
         {
@@ -480,10 +480,10 @@ void readVectorDynamic(uint8_t startReg, uint8_t bytes, const char *name, uint8_
     }
 
 //    printf("%s: ", name);
-    for (uint8_t i = 0; i < bytes; i++) {
-        // printf("%02X ", vectorData[i]);
-    }
-    printf("\r\n");
+    // for (uint8_t i = 0; i < bytes; i++) {
+    //     // printf("%02X ", vectorData[i]);
+    // }
+    // printf("\r\n");
 }
 
 void readQuaternion() {
@@ -518,30 +518,30 @@ void printIMU()
     // Normalize yaw to 0-360 for compass heading
     if (yaw < 0) yaw += 360.0f;
 
-    printf("\r\n========== IMU DATA ==========\r\n");
+    // printf("\r\n========== IMU DATA ==========\r\n");
 
-    // Raw vectors
-    printf("Accel  (raw): X=%6d  Y=%6d  Z=%6d\r\n", IMU.acc_x,  IMU.acc_y,  IMU.acc_z);
-    printf("Gyro   (raw): X=%6d  Y=%6d  Z=%6d\r\n", IMU.gyro_x, IMU.gyro_y, IMU.gyro_z);
-    printf("Mag    (raw): X=%6d  Y=%6d  Z=%6d\r\n", IMU.mag_x,  IMU.mag_y,  IMU.mag_z);
+    // // Raw vectors
+    // printf("Accel  (raw): X=%6d  Y=%6d  Z=%6d\r\n", IMU.acc_x,  IMU.acc_y,  IMU.acc_z);
+    // printf("Gyro   (raw): X=%6d  Y=%6d  Z=%6d\r\n", IMU.gyro_x, IMU.gyro_y, IMU.gyro_z);
+    // printf("Mag    (raw): X=%6d  Y=%6d  Z=%6d\r\n", IMU.mag_x,  IMU.mag_y,  IMU.mag_z);
 
-    // Instead of: printf("Quat (scaled): W=%7.4f  X=%7.4f  Y=%7.4f  Z=%7.4f\r\n", w, x, y, z);
-    printf("Quat (scaled): W=%d.%04d  X=%d.%04d  Y=%d.%04d  Z=%d.%04d\r\n",
-        FLOAT_INT(w),  FLOAT_FRAC(w),
-        FLOAT_INT(x),  FLOAT_FRAC(x),
-        FLOAT_INT(y),  FLOAT_FRAC(y),
-        FLOAT_INT(z),  FLOAT_FRAC(z));
+    // // Instead of: printf("Quat (scaled): W=%7.4f  X=%7.4f  Y=%7.4f  Z=%7.4f\r\n", w, x, y, z);
+    // printf("Quat (scaled): W=%d.%04d  X=%d.%04d  Y=%d.%04d  Z=%d.%04d\r\n",
+    //     FLOAT_INT(w),  FLOAT_FRAC(w),
+    //     FLOAT_INT(x),  FLOAT_FRAC(x),
+    //     FLOAT_INT(y),  FLOAT_FRAC(y),
+    //     FLOAT_INT(z),  FLOAT_FRAC(z));
 
-    // Instead of: printf("Euler: Roll=%7.2f  Pitch=%7.2f  Yaw=%7.2f (deg)\r\n", roll, pitch, yaw);
-    printf("Euler:  Roll=%d.%04d  Pitch=%d.%04d  Yaw=%d.%04d (deg)\r\n",
-        FLOAT_INT(roll),  FLOAT_FRAC(roll),
-        FLOAT_INT(pitch), FLOAT_FRAC(pitch),
-        FLOAT_INT(yaw),   FLOAT_FRAC(yaw));
+    // // Instead of: printf("Euler: Roll=%7.2f  Pitch=%7.2f  Yaw=%7.2f (deg)\r\n", roll, pitch, yaw);
+    // printf("Euler:  Roll=%d.%04d  Pitch=%d.%04d  Yaw=%d.%04d (deg)\r\n",
+    //     FLOAT_INT(roll),  FLOAT_FRAC(roll),
+    //     FLOAT_INT(pitch), FLOAT_FRAC(pitch),
+    //     FLOAT_INT(yaw),   FLOAT_FRAC(yaw));
 
-    // Instead of: printf("Heading: %.2f deg\r\n", yaw);
-    printf("Heading: %d.%04d deg\r\n", FLOAT_INT(yaw), FLOAT_FRAC(yaw));
+    // // Instead of: printf("Heading: %.2f deg\r\n", yaw);
+    // printf("Heading: %d.%04d deg\r\n", FLOAT_INT(yaw), FLOAT_FRAC(yaw));
 
-    printf("==============================\r\n");
+    // printf("==============================\r\n");
 }
 
 uint8_t checkCalibration(int onlySysGyro) {

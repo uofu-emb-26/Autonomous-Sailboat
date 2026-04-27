@@ -35,23 +35,29 @@ void button_activateControlMode(controlMode_t mode)
   switch (mode)
   {
     case CONTROL_MODE_SERVO_SAIL:
+      printf("MODE: Servo Sail\r\n");
       break;
 
     case CONTROL_MODE_SERVO_RUDDER:
+      printf("MODE: Servo Rudder\r\n");
       break;
 
     case CONTROL_MODE_SENSOR_WIND:
+      printf("MODE: Sensor Wind\r\n");
       break;
 
     case CONTROL_MODE_MAG_YAW:
+      printf("MODE: Magnetometer Yaw\r\n");
       sensorMagnetometer_setMode(SENSOR_MAG_MODE_YAW);
       break;
 
     case CONTROL_MODE_MAG_PITCH:
+      printf("MODE: Magnetometer Pitch\r\n");
       sensorMagnetometer_setMode(SENSOR_MAG_MODE_PITCH);
       break;
 
     case CONTROL_MODE_MAG_ROLL:
+      printf("MODE: Magnetometer Roll\r\n");
       sensorMagnetometer_setMode(SENSOR_MAG_MODE_ROLL);
       break;
 

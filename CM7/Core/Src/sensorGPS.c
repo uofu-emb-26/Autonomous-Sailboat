@@ -94,9 +94,9 @@ void GPS_Parse_GGA(char* nmea_str, GPS_Data_t* gps_struct)
   }
 
   // Print every field so we can see what strtok produced
-  for (int i = 0; i < 10; i++) {
-      printf("field[%d] = [%s]\r\n", i, gps_fields[i] ? gps_fields[i] : "NULL");
-  }
+  // for (int i = 0; i < 10; i++) {
+  //     printf("field[%d] = [%s]\r\n", i, gps_fields[i] ? gps_fields[i] : "NULL");
+  // }
 
   if (gps_fields[6] == NULL) { printf("BAILED: field 6 null\r\n"); return; }
   
