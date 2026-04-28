@@ -18,7 +18,7 @@ TaskHandle_t task_servoSail;
 TIM_HandleTypeDef servo_tim1;
 
 /**
-  * Initialize the hardware.
+  * @brief Configure TIM1 channel 1 to generate a 50 Hz PWM signal for the sail servo.
   */
 void servoSail_hardwareInit()
 {
@@ -45,6 +45,7 @@ void servoSail_hardwareInit()
 
   TIM_OC_InitTypeDef sConfigOC = {0};
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  // Start the servo at its midpoint until the control task updates the angle.
   sConfigOC.Pulse = (SERVO_MAX_PULSE+SERVO_MIN_PULSE)/2;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
@@ -56,6 +57,10 @@ void servoSail_hardwareInit()
   if (HAL_TIM_PWM_Start(&servo_tim1, TIM_CHANNEL_1) != HAL_OK) { Error_Handler(); }
 }
 
+/**
+  * @brief Read the wind sensor and adjust the sail servo while sail mode is selected.
+  * @param argument Unused RTOS task argument.
+  */
 void servoSail_handler(void *argument)
 {
   for (;;)
@@ -73,15 +78,19 @@ void servoSail_handler(void *argument)
         continue;
     }
 
-    // servo = 225 - wind
-    // Valid range: wind 90-360 → servo 135 to -135
-    // Invalid range: wind 0-89 → computes >135, clamped by setAngle
+    // Map the wind angle into the sail servo reference frame.
+    // The extra 45-degree offset compensates for the current mechanical trim.
     int16_t sail_angle = (int16_t)(225 - (int16_t)wind + 45);
 
     servoSail_setAngle(sail_angle);
     vTaskDelay(pdMS_TO_TICKS(SERVO_SAIL_ACTIVE_PERIOD_MS));
   }
 }
+
+/**
+  * @brief Convert a requested sail angle into a PWM pulse width and update TIM1.
+  * @param angle Desired sail angle in degrees.
+  */
 void servoSail_setAngle(int16_t angle)
 {
     if (angle < SERVO_MIN_ANGLE) angle = SERVO_MIN_ANGLE;
