@@ -1,15 +1,14 @@
-// sensorWind.c
+/* Wind sensor interface over UART4 using the sensor's Modbus-style protocol. */
 #include "button.h"
 #include "sensorWind.h"
-#include "servoSail.h"   // include here, not in the header
+#include "servoSail.h"
 #include "main.h"
 #include "stm32h7xx_hal_uart.h"
 #include "stm32h7xx_hal_gpio_ex.h"
 #include <stdbool.h>
 #include <stdio.h>
 
-// SENSOR_ADDRESS comes from sensorWind.h now — don't redefine here
-
+/* Module state and private helpers. */
 TaskHandle_t       task_sensorWind;
 UART_HandleTypeDef UART4_Handler = {0};
 
@@ -26,12 +25,17 @@ static const char* direction_name(int val);
 #define SENSOR_WIND_IDLE_PERIOD_MS 20
 #define SENSOR_WIND_UART_TIMEOUT_MS 100
 
-// Hardware init                                                       
+/**
+  * @brief Initialize the hardware resources used by the wind sensor task.
+  */
 void sensorWind_hardwareInit(void)
 {
     sensorWind_uart4Init();
 }
 
+/**
+  * @brief Configure UART4 and its GPIO pins for wind sensor communication.
+  */
 static void sensorWind_uart4Init(void)
 {
     /* PC10 — UART4 TX */
@@ -77,7 +81,10 @@ static void sensorWind_uart4Init(void)
     printf("  Expected UART4 baud: 9600\r\n");
 }
 
-
+/**
+  * @brief Read the wind sensor and update the sail servo while wind mode is active.
+  * @param argument Unused RTOS task argument.
+  */
 void sensorWind_handler(void *argument)
 {
     for (;;)
@@ -105,7 +112,7 @@ void sensorWind_handler(void *argument)
     }
 }
 
-// DEBUG Version, prints out what is sent and what is approaved
+// Diagnostic version of sensorWind_handler() used during sensor bring-up.
 // void sensorWind_handler(void *argument)
 // {
 
@@ -171,8 +178,12 @@ void sensorWind_handler(void *argument)
 // }
 
 
-// CRC16 Modbus — single consistent implementation                      
-// Standard Modbus CRC16, low byte first (little-endian)
+/**
+  * @brief Compute the Modbus CRC16 for a byte buffer.
+  * @param buf Bytes to checksum.
+  * @param len Number of bytes in the buffer.
+  * @return CRC16 value in host endianness.
+  */
 static uint16_t crc16(const uint8_t *buf, int len)
 {
     uint16_t crc = 0xFFFF;
@@ -188,7 +199,11 @@ static uint16_t crc16(const uint8_t *buf, int len)
     return crc;
 }
 
-// Appends CRC low byte then high byte to buf[len], buf[len+1]
+/**
+  * @brief Append a Modbus CRC to the end of a transmit frame.
+  * @param buf Frame buffer with space for two CRC bytes at the end.
+  * @param len Number of payload bytes before the CRC.
+  */
 static void append_crc(uint8_t *buf, int len)
 {
     uint16_t crc  = crc16(buf, len);
@@ -196,7 +211,12 @@ static void append_crc(uint8_t *buf, int len)
     buf[len + 1]  = (crc >> 8) & 0xFF;
 }
 
-// Validates CRC in last 2 bytes of buf (low byte first)
+/**
+  * @brief Validate the CRC stored in the final two bytes of a frame.
+  * @param buf Frame buffer containing payload and CRC bytes.
+  * @param len Total frame length including the CRC.
+  * @return `true` when the CRC matches, otherwise `false`.
+  */
 static bool check_crc(const uint8_t *buf, int len)
 {
     uint16_t computed = crc16(buf, len - 2);
@@ -204,9 +224,9 @@ static bool check_crc(const uint8_t *buf, int len)
     return computed == received;
 }
 
-/* ------------------------------------------------------------------ */
-/* Serial helpers                                                       */
-/* ------------------------------------------------------------------ */
+/**
+  * @brief Clear any pending bytes from the UART receive path.
+  */
 static void flush_rx(void)
 {
     // Abort any ongoing receive and clear the UART RX FIFO/shift register
@@ -215,7 +235,13 @@ static void flush_rx(void)
     while (HAL_UART_Receive(&UART4_Handler, &dummy, 1, 1) == HAL_OK) {}
 }
 
-// Read exactly `len` bytes with a timeout. Returns true on success.
+/**
+  * @brief Read an exact number of bytes from UART4.
+  * @param buf Destination buffer.
+  * @param len Number of bytes to read.
+  * @param timeout_ms Receive timeout in milliseconds.
+  * @return `true` if all requested bytes were received, otherwise `false`.
+  */
 static bool read_bytes(uint8_t *buf, size_t len, uint32_t timeout_ms)
 {
     // HAL_UART_Receive blocks until all bytes received or timeout
@@ -223,11 +249,11 @@ static bool read_bytes(uint8_t *buf, size_t len, uint32_t timeout_ms)
     return (status == HAL_OK);
 }
 
-/* ------------------------------------------------------------------ */
-/* Sensor reads                                                         */
-/* ------------------------------------------------------------------ */
-
-// Returns wind angle in degrees (e.g. 65.5f), or -1.0f on error
+/**
+  * @brief Read the full 0-360 degree wind angle register from the sensor.
+  * @param addr Modbus address of the wind sensor.
+  * @return Angle in degrees, or `-1.0f` if the transaction fails.
+  */
 float read_wind_angle_360(uint8_t addr)
 {
     // Build Modbus read command for register 0x0000 (360° angle)
@@ -268,7 +294,11 @@ float read_wind_angle_360(uint8_t addr)
     return raw / 10.0f;  // e.g. 655 raw → 65.5°
 }
 
-// Returns 0-15 for 16 wind directions, or -1 on error
+/**
+  * @brief Read the sensor's 16-point compass direction register.
+  * @param addr Modbus address of the wind sensor.
+  * @return Direction code in the range 0-15, or `-1` on error.
+  */
 int read_wind_dir_16(uint8_t addr)
 {
     // Build Modbus read command for register 0x0001 (16-direction)
@@ -293,9 +323,11 @@ int read_wind_dir_16(uint8_t addr)
     return (int)(((uint16_t)resp[3] << 8) | resp[4]);
 }
 
-/* ------------------------------------------------------------------ */
-/* Direction name lookup                                                */
-/* ------------------------------------------------------------------ */
+/**
+  * @brief Convert a 16-point direction code into a readable compass label.
+  * @param val Direction code returned by `read_wind_dir_16()`.
+  * @return Direction name, or `"Unknown"` when the code is out of range.
+  */
 static const char* direction_name(int val)
 {
     static const char *dirs[] = {

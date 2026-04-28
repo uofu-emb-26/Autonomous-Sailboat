@@ -9,6 +9,11 @@ TaskHandle_t task_button;
 SemaphoreHandle_t semphr_button;
 static volatile controlMode_t currentControlMode = CONTROL_MODE_SERVO_SAIL;
 
+/**
+  * @brief Convert a control mode enum into the name shown on the debug console.
+  * @param mode Control mode to describe.
+  * @return Human-readable mode name.
+  */
 static const char *button_modeName(controlMode_t mode)
 {
   switch (mode)
@@ -23,11 +28,19 @@ static const char *button_modeName(controlMode_t mode)
   }
 }
 
+/**
+  * @brief Return the control mode currently selected by the button task.
+  * @return The active control mode.
+  */
 controlMode_t button_getCurrentControlMode(void)
 {
   return currentControlMode;
 }
 
+/**
+  * @brief Activate a specific control mode and update any dependent subsystems.
+  * @param mode Control mode to activate.
+  */
 void button_activateControlMode(controlMode_t mode)
 {
   currentControlMode = mode;
@@ -68,6 +81,9 @@ void button_activateControlMode(controlMode_t mode)
   printf("Active control mode: %s\r\n", button_modeName(mode));
 }
 
+/**
+  * @brief Advance to the next control mode in the button rotation.
+  */
 void button_activateNextControlMode(void)
 {
   controlMode_t nextMode = (controlMode_t)((currentControlMode + 1) % CONTROL_MODE_COUNT);
@@ -75,18 +91,20 @@ void button_activateNextControlMode(void)
 }
 
 /**
-  * Initialize the hardware.
+  * @brief Configure the user button interrupt input and its status LED output.
   */
 void button_hardwareInit()
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
+  // PB14 drives the LED that acknowledges a mode change.
   GPIO_InitStruct.Pin = GPIO_PIN_14;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  // PC13 is the pushbutton input and generates an interrupt on the rising edge.
   GPIO_InitStruct.Pin = GPIO_PIN_13;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
@@ -97,7 +115,8 @@ void button_hardwareInit()
 }
 
 /**
-  * Handler for the task.
+  * @brief Wait for button events and cycle to the next control mode.
+  * @param argument Unused RTOS task argument.
   */
 void button_handler(void *argument)
 {
@@ -107,6 +126,7 @@ void button_handler(void *argument)
     {
       HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
       button_activateNextControlMode();
+      // Hold the LED on briefly so the mode change is visible on the board.
       vTaskDelay(pdMS_TO_TICKS(1000));
       HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
     }

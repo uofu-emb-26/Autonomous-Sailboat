@@ -7,40 +7,41 @@
 #include "sensorMagnetometer.h"
 #include <math.h>
 
+/* BNO055 device and register addresses. */
 #define BNO055_ADDR  0x28  // ADR pin LOW (default Adafruit breakout). Use 0x29 if ADR pin is HIGH.
-#define BNO055_WHO_AM_I 0x00  // chip ID register
-#define BNO055_ACC 0x01  // chip ID register
-#define BNO055_MAG 0x02  // chip ID register
-#define BNO055_GYRO 0x03  // chip ID register
-#define BNO055_ACCX_LSB 0x08  // chip ID register
-#define BNO055_ACCX_MSB 0x09  // chip ID register
-#define BNO055_ACCY_LSB 0x0A  // chip ID register
-#define BNO055_ACCY_MSB 0x0B  // chip ID register
-#define BNO055_ACCZ_LSB 0x0C  // chip ID register
-#define BNO055_ACCZ_MSB 0x0D  // chip ID register
-#define BNO055_MAGX_LSB 0x0E  // chip ID register
-#define BNO055_MAGX_MSB 0x0F  // chip ID register
-#define BNO055_MAGY_LSB 0x10  // chip ID register
-#define BNO055_MAGY_MSB 0x11  // chip ID register
-#define BNO055_MAGZ_LSB 0x12  // chip ID register
-#define BNO055_MAGZ_MSB 0x13  // chip ID register
-#define BNO055_GYRX_LSB 0x14  // chip ID register
-#define BNO055_GYRX_MSB 0x15  // chip ID register
-#define BNO055_GYRY_LSB 0x16  // chip ID register
-#define BNO055_GYRY_MSB 0x17  // chip ID register
-#define BNO055_GYRZ_LSB 0x18  // chip ID register
-#define BNO055_GYRZ_MSB 0x19  // chip ID register
-#define BNO055_EUL_HEADING_LSB 0x1A  // chip ID register
-#define BNO055_EUL_HEADING_MSB 0x1B  // chip ID register
+#define BNO055_WHO_AM_I 0x00
+#define BNO055_ACC 0x01
+#define BNO055_MAG 0x02
+#define BNO055_GYRO 0x03
+#define BNO055_ACCX_LSB 0x08
+#define BNO055_ACCX_MSB 0x09
+#define BNO055_ACCY_LSB 0x0A
+#define BNO055_ACCY_MSB 0x0B
+#define BNO055_ACCZ_LSB 0x0C
+#define BNO055_ACCZ_MSB 0x0D
+#define BNO055_MAGX_LSB 0x0E
+#define BNO055_MAGX_MSB 0x0F
+#define BNO055_MAGY_LSB 0x10
+#define BNO055_MAGY_MSB 0x11
+#define BNO055_MAGZ_LSB 0x12
+#define BNO055_MAGZ_MSB 0x13
+#define BNO055_GYRX_LSB 0x14
+#define BNO055_GYRX_MSB 0x15
+#define BNO055_GYRY_LSB 0x16
+#define BNO055_GYRY_MSB 0x17
+#define BNO055_GYRZ_LSB 0x18
+#define BNO055_GYRZ_MSB 0x19
+#define BNO055_EUL_HEADING_LSB 0x1A
+#define BNO055_EUL_HEADING_MSB 0x1B
 #define BNO055_Quaternion_LSB 0x20
-#define BNO055_ST_RESULT 0x36 // Self-test register
-#define BNO055_SYS_STAT 0x39 // System status register
-#define BNO055_SYS_ERROR 0x3A // System error register
-#define BNO055_OPR_MODE 0x3D // Operation mode register
-#define BNO55_CALIB_STATE 0x35 // Calibration staus register
-#define BNO055_CALIB 0x55 // Lowest calibration register ADDR
-#define CALIB_OFFSET_SIZE 22 // How many calibration regs to read
-#define BNOSS_SICMATRIX 0x43 // Lowest calibration register indluding SIC MATRIX
+#define BNO055_ST_RESULT 0x36
+#define BNO055_SYS_STAT 0x39
+#define BNO055_SYS_ERROR 0x3A
+#define BNO055_OPR_MODE 0x3D
+#define BNO55_CALIB_STATE 0x35
+#define BNO055_CALIB 0x55
+#define CALIB_OFFSET_SIZE 22
+#define BNOSS_SICMATRIX 0x43
 
 #define BNO055_OPR_MODE_CONFIG 0x00
 #define BNO055_OPR_MODE_ACCONLY 0x01
@@ -63,10 +64,11 @@
 #define M_PI 3.14159265358979323846f
 #endif
 
-// Helper macro to split a float into printable integer parts
+// Helper macros for printing fixed-point style debug values without %f support.
 #define FLOAT_INT(f)  ((int)(f))
 #define FLOAT_FRAC(f) ((int)(fabsf((f) - (int)(f)) * 10000))
 
+/* Internal helpers used during initialization, sampling, and calibration. */
 void setOperationMode(uint8_t mode);
 static void readChip(uint8_t regADDR, const char *name);
 void readWhoAmI();
@@ -84,7 +86,7 @@ void loadCalibrationData();
 void fillStruct();
 void printIMU();
 
-#pragma pack(1) // ensure no padding between fields
+#pragma pack(1) // Keep the layout stable if this struct is shared across cores.
 typedef struct {
     // Raw sensor vectors
     int16_t acc_x,  acc_y,  acc_z;
@@ -94,11 +96,12 @@ typedef struct {
     //Quaternion Fusion Mode Values
     int16_t w, x, y, z;
 
-    // Claude said to have ths for when we transfer between cores
+    // Incremented when fresh fused data is copied into the struct.
     uint32_t update_count;
 } IMU_Data;
 #pragma pack()
 
+/* Shared IMU sample data, I2C handle, and task state. */
 IMU_Data IMU = {0};
 TaskHandle_t task_sensorMagnetometer;
 I2C_HandleTypeDef I2C_BNO055_Handle;
@@ -118,16 +121,13 @@ static uint8_t savedOffsets[CALIB_OFFSET_SIZE] = {
     0xE8, 0x03, 0xE5, 0x01                // accel radius, mag radius
 };
 /**
-  * Initialize the hardware.
+  * @brief Configure I2C2 and initialize the BNO055 sensor.
   */
 void sensorMagnetometer_hardwareInit()
 {
-    // Page 65 of the chip datasheet says pf0 and pf1 are I2c_SDA and I2c_SCL
-    // added  __HAL_RCC_GPIOF_CLK_ENABLE(); to the main.c
-    // added __HAL_RCC_I2C2_CLK_ENABLE(); to the main.c
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-    // using PB11 for I2C2_SDA
+    // PB11 and PB10 are routed to I2C2 on this board.
     GPIO_InitStruct.Pin = GPIO_PIN_11;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_OD; // Open Drain - OD
     GPIO_InitStruct.Pull = GPIO_NOPULL; 
@@ -189,8 +189,9 @@ void sensorMagnetometer_hardwareInit()
 
     readWhoAmI();
     readSelfTest();
-    currentMode = BNO055_OPR_MODE_CONFIG; // USER: DON't change this line
-    targetMode = BNO055_OPR_MODE_NDOF; // USER: only change this line to set mode
+    // Track the current chip mode locally and request fused orientation output by default.
+    currentMode = BNO055_OPR_MODE_CONFIG;
+    targetMode = BNO055_OPR_MODE_NDOF;
 
     if (!(targetMode >= BNO055_OPR_MODE_IMUPLUS && targetMode <= BNO055_OPR_MODE_NDOF))
     {
@@ -242,6 +243,10 @@ void sensorMagnetometer_hardwareInit()
     }
 }
 
+/**
+  * @brief Write a new BNO055 operating mode and wait for the change to settle.
+  * @param mode BNO055 operating mode value to write.
+  */
 void setOperationMode(uint8_t mode)
 {
     HAL_I2C_Mem_Write(&I2C_BNO055_Handle, BNO055_ADDR << 1, BNO055_OPR_MODE, I2C_MEMADD_SIZE_8BIT, &mode, 1, 1000);
@@ -249,16 +254,30 @@ void setOperationMode(uint8_t mode)
     currentMode = mode;
 }
 
+/**
+  * @brief Select which Euler axis the magnetometer task should publish.
+  * @param mode Requested magnetometer output mode.
+  */
 void sensorMagnetometer_setMode(sensorMagnetometerMode_t mode)
 {
     magnetometerTaskMode = mode;
 }
 
+/**
+  * @brief Return the currently selected magnetometer output mode.
+  * @return Active magnetometer task mode.
+  */
 sensorMagnetometerMode_t sensorMagnetometer_getMode(void)
 {
     return magnetometerTaskMode;
 }
 
+/**
+  * @brief Convert the latest quaternion sample into Euler roll, pitch, and yaw angles.
+  * @param roll Destination for roll in degrees.
+  * @param pitch Destination for pitch in degrees.
+  * @param yaw Destination for yaw in degrees.
+  */
 static void sensorMagnetometer_readEulerDegrees(int16_t *roll, int16_t *pitch, int16_t *yaw)
 {
     float w = IMU.w / 16384.0f;
@@ -271,6 +290,9 @@ static void sensorMagnetometer_readEulerDegrees(int16_t *roll, int16_t *pitch, i
     *yaw = (int16_t)(atan2f(2.0f * (w*z + x*y), 1.0f - 2.0f * (y*y + z*z)) * (180.0f / M_PI));
 }
 
+/**
+  * @brief Read a fresh IMU sample and update the servo target from yaw.
+  */
 static void sensorMagnetometer_runYawMode(void)
 {
     int16_t roll;
@@ -285,6 +307,9 @@ static void sensorMagnetometer_runYawMode(void)
     servoAngle = yaw;
 }
 
+/**
+  * @brief Read a fresh IMU sample and update the servo target from pitch.
+  */
 static void sensorMagnetometer_runPitchMode(void)
 {
     int16_t roll;
@@ -299,6 +324,9 @@ static void sensorMagnetometer_runPitchMode(void)
      servoAngle = (int16_t)((int32_t)pitch * 3 / 2);
 }
 
+/**
+  * @brief Read a fresh IMU sample and update the servo target from roll.
+  */
 static void sensorMagnetometer_runRollMode(void)
 {
     int16_t roll;
@@ -313,10 +341,9 @@ static void sensorMagnetometer_runRollMode(void)
     servoAngle = roll;
 }
 
-// 0xAA is the start byte
-
 /**
-  * Handler for the task.
+  * @brief Run the active magnetometer mode and mirror the selected angle onto the sail servo.
+  * @param argument Unused RTOS task argument.
   */
 void sensorMagnetometer_handler(void *argument)
 {
@@ -357,15 +384,25 @@ void sensorMagnetometer_handler(void *argument)
                 vTaskDelay(pdMS_TO_TICKS(1000));
                 break;
         }
+
+        // Reuse the sail servo as the visible output for the selected IMU angle.
         servoSail_setAngle(servoAngle);
         vTaskDelay(pdMS_TO_TICKS(SENSOR_MAG_ACTIVE_PERIOD_MS));
     }
 }
 
+/**
+  * @brief Read and verify the BNO055 chip ID register.
+  */
 void readWhoAmI() {
     readChip(BNO055_WHO_AM_I, "Who Am I");
 }
 
+/**
+  * @brief Read a one-byte identification or status register and compare it to the expected value.
+  * @param regADDR Register address to read.
+  * @param name Human-readable label used in debug output.
+  */
 static void readChip(uint8_t regADDR, const char *name)
 {   
     uint8_t receiveBuff = 0;
@@ -402,26 +439,46 @@ static void readChip(uint8_t regADDR, const char *name)
     }
 }
 
+/**
+  * @brief Read and verify the magnetometer ID register.
+  */
 void readMAG()
 {   
     readChip(BNO055_MAG, "MAG");
 }
 
+/**
+  * @brief Read and verify the accelerometer ID register.
+  */
 void readACC()
 {   
     readChip(BNO055_ACC, "ACC");
 }
 
+/**
+  * @brief Read and verify the gyroscope ID register.
+  */
 void readGYRO()
 {   
     readChip(BNO055_GYRO, "GYRO");
 }
 
+/**
+  * @brief Read and verify the BNO055 self-test result register.
+  */
 void readSelfTest()
 {   
     readChip(BNO055_ST_RESULT, "Self-Test Result");
 }
 
+/**
+  * @brief Read a three-axis sensor vector from six consecutive BNO055 registers.
+  * @param startReg First register in the vector block.
+  * @param name Label used in debug output.
+  * @param xData Destination for the X-axis sample.
+  * @param yData Destination for the Y-axis sample.
+  * @param zData Destination for the Z-axis sample.
+  */
 static void BNO055_readVector(uint8_t startReg, const char *name, int16_t *xData, int16_t *yData, int16_t *zData)
 {
     uint8_t data[6] = {0xF, 0xF, 0xF, 0xF, 0xF, 0xF}; // Initialize with invalid data for easier debugging
@@ -447,21 +504,37 @@ static void BNO055_readVector(uint8_t startReg, const char *name, int16_t *xData
 //    printf("%s: X=%d, Y=%d, Z=%d\r\n", name, x, y, z);
 }
 
+/**
+  * @brief Refresh the accelerometer sample stored in the IMU struct.
+  */
 void readACC_Vector()
 {
     BNO055_readVector(BNO055_ACCX_LSB, "ACC", &IMU.acc_x, &IMU.acc_y, &IMU.acc_z);
 }
 
+/**
+  * @brief Refresh the magnetometer sample stored in the IMU struct.
+  */
 void readMAG_Vector()
 {
     BNO055_readVector(BNO055_MAGX_LSB, "MAG",  &IMU.mag_x, &IMU.mag_y, &IMU.mag_z);
 }
 
+/**
+  * @brief Refresh the gyroscope sample stored in the IMU struct.
+  */
 void readGYRO_Vector()
 {
     BNO055_readVector(BNO055_GYRX_LSB, "GYRO",  &IMU.gyro_x, &IMU.gyro_y, &IMU.gyro_z);
 }
 
+/**
+  * @brief Read an arbitrary block of bytes from the BNO055.
+  * @param startReg First register to read.
+  * @param bytes Number of bytes to read.
+  * @param name Label used in debug output.
+  * @param vectorData Destination buffer.
+  */
 void readVectorDynamic(uint8_t startReg, uint8_t bytes, const char *name, uint8_t *vectorData)
 {
     HAL_StatusTypeDef info;
@@ -486,6 +559,9 @@ void readVectorDynamic(uint8_t startReg, uint8_t bytes, const char *name, uint8_
     // printf("\r\n");
 }
 
+/**
+  * @brief Refresh the quaternion sample stored in the IMU struct.
+  */
 void readQuaternion() {
     uint8_t quat[8] = {0};
     readVectorDynamic(BNO055_Quaternion_LSB, 8, "Quaternion Data", quat);
@@ -495,6 +571,9 @@ void readQuaternion() {
     IMU.z = (quat[7] << 8) | quat[6];
 }
 
+/**
+  * @brief Read all sensor vectors and fused quaternion data into the shared IMU struct.
+  */
 void fillStruct() {
     readACC_Vector();
     readMAG_Vector();
@@ -502,6 +581,9 @@ void fillStruct() {
     readQuaternion();
 }
 
+/**
+  * @brief Print the current raw and fused IMU values to the debug console.
+  */
 void printIMU()
 {
     // Scale quaternion components to unit range [-1, 1]
@@ -544,6 +626,11 @@ void printIMU()
     // printf("==============================\r\n");
 }
 
+/**
+  * @brief Read and report the current BNO055 calibration state.
+  * @param onlySysGyro When non-zero, only require system and gyro calibration to pass.
+  * @return Non-zero when the requested calibration criteria are satisfied.
+  */
 uint8_t checkCalibration(int onlySysGyro) {
 
     HAL_StatusTypeDef info;
@@ -576,6 +663,9 @@ uint8_t checkCalibration(int onlySysGyro) {
     return (sys_cal == 3 && acc_cal == 3 && mag_cal == 3 && gyro_cal == 3);
 }
 
+/**
+  * @brief Read the current calibration offsets from the BNO055 into `savedOffsets`.
+  */
 void saveCalibrationData()
 {
     HAL_StatusTypeDef info;
@@ -640,6 +730,9 @@ void saveCalibrationData()
     printf("=====================================\r\n");
 }
 
+/**
+  * @brief Write the cached calibration offsets back into the BNO055.
+  */
 void loadCalibrationData()
 {
     HAL_StatusTypeDef info;

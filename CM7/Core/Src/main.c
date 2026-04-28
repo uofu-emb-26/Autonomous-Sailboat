@@ -20,18 +20,18 @@
 
 /* Private includes ----------------------------------------------------------*/
 
-//...
+/* No additional private includes. */
 
 /* Private typedef -----------------------------------------------------------*/
 
-//...
+/* No private typedefs. */
 
 /* Private define ------------------------------------------------------------*/
 
 /* DUAL_CORE_BOOT_SYNC_SEQUENCE: Define for dual core boot synchronization    */
 /*                             demonstration code based on hardware semaphore */
 /* This define is present in both CM7/CM4 projects                            */
-/* To comment when developping/debugging on a single core                     */
+/* Comment out when developing or debugging on a single core                  */
 #define DUAL_CORE_BOOT_SYNC_SEQUENCE
 
 #if defined(DUAL_CORE_BOOT_SYNC_SEQUENCE)
@@ -42,7 +42,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 
-//...
+/* No private macros. */
 
 /* Private variables ---------------------------------------------------------*/
 
@@ -182,12 +182,15 @@ void assert_failed(uint8_t *file, uint32_t line)
 void hardware_init(void)
 {
   HAL_Init();
+
+  // Enable the GPIO ports used by the board peripherals before configuring them.
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
 
+  // Enable the peripheral clocks required by the application modules.
   __HAL_RCC_TIM1_CLK_ENABLE();
   __HAL_RCC_UART4_CLK_ENABLE();
   __HAL_RCC_I2C2_CLK_ENABLE();
@@ -215,11 +218,13 @@ void hardware_init(void)
     Error_Handler();
   }
 
+  // Disable stdio buffering so debug prints appear immediately on COM1.
   setvbuf(stdout, NULL, _IONBF, 0);
   setvbuf(stderr, NULL, _IONBF, 0);
 
 
   /* USER CODE BEGIN SysInit */
+  /* Initialize application peripherals before any RTOS tasks start running. */
   button_hardwareInit();
 
   servoSail_hardwareInit();
@@ -240,8 +245,10 @@ void hardware_init(void)
   */
 void rtos_init()
 {
+  // Create shared synchronization primitives before the tasks that use them.
   if ((semphr_button = xSemaphoreCreateBinary()) == NULL) { Error_Handler(); }
 
+  // Launch one task per control/input subsystem.
   if (xTaskCreate(button_handler,             "buttonTask",             256, NULL, osPriorityAboveNormal, &task_button)             != pdPASS) { Error_Handler(); }
   if (xTaskCreate(servoSail_handler,          "servoSailTask",          128, NULL, osPriorityNormal,      &task_servoSail)          != pdPASS) { Error_Handler(); }
   if (xTaskCreate(servoRudder_handler,        "servoRudderTask",        128, NULL, osPriorityNormal,      &task_servoRudder)        != pdPASS) { Error_Handler(); }
