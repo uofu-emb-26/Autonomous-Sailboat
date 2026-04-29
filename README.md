@@ -72,14 +72,13 @@ All connections are made to the ZIO connectors on the Nucleo-144 board. No solde
 |------------|-----------|--------------|-------|
 | SCK        | PA5       | CN7 pin 10   | SPI1 clock |
 | MISO       | PA6       | CN7 pin 12   | SPI1 MISO |
-| MOSI       | PB5       | CN7 pin 14   | SPI1 MOSI — note: PB5 not PA7 on H755 |
+| MOSI       | PB5       | CN7 pin 14   | SPI1 MOSI |
 | NSS (CS)   | PD14      | CN7 pin 16   | Software controlled chip select |
 | RESET      | PD15      | CN7 pin 18   | Active low reset |
 | DIO0       | PG9       | CN10 pin 20  | TX done / RX done interrupt |
 | 3.3V       | 3V3       | CN8 pin 7    | Power |
 | GND        | GND       | CN8 pin 11   | Ground |
- 
-> **Important:** The STM32H755ZI-Q routes SPI1 MOSI through **PB5**, not PA7. PA7 is used on other H7 variants. Using PA7 will result in no data transmission.
+
  
 ---
  
