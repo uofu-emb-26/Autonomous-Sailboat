@@ -23,39 +23,70 @@ This subsystem handles all bidirectional telemetry and command communication bet
 
 ---
 
+## System Overview
+
+```
+[Ground Station Laptop]
+        |
+   Python dashboard (Flask) or serial terminal
+        |
+   USB serial
+        |
+[SparkFun SAMD21 Pro RF]  ←── RFM95W built in
+        |
+   915 MHz LoRa (bidirectional)
+        |
+[RFM95W module] ←── wired via SPI1
+        |
+[STM32H755 Nucleo-144]
+   CM4 core: LoRa comms (this repo)
+   CM7 core: Sensor integration / path planning (separate subsystem)
+        |
+   Rudder servo
+```
+
+The STM32H755 is a dual-core processor. The CM4 core exclusively handles LoRa communication. The CM7 core runs a separate sensor integration and path planning subsystem. Both cores must be flashed for the board to operate correctly — the CM7 releases a hardware semaphore that allows the CM4 to exit stop mode and begin executing.
+
 ## Hardware Requirements
 
 **Boat Side**
 - STM32H755ZI-Q Nucleo-144 development board
 - RFM95W LoRa transceiver module wired to SPI1
-- 915 MHz antenna (correctly tuned)
+- 915 MHz antenna
 - UART serial adapter for monitoring incoming/outgoing messages
 - Servo and motor board with appropriate battery
 
 **Ground Station**
 - SparkFun SAMD21 Pro RF (has RFM95W onboard)
-- 915 MHz antenna (correctly tuned)
+- 915 MHz antenna
 - USB cable
 
 ---
 
-## Software Requirements
 
-- macOS (tested on Mac only)
-- `arm-none-eabi-gcc` toolchain
-- `cmake`, `ninja`, `openocd`
-- Python 3 (for dashboard)
-- flask pyserial
-- PlatformIO (for SAMD21)
-
+## Wiring — STM32 Nucleo to RFM95W
+ 
+All connections are made to the ZIO connectors on the Nucleo-144 board. No soldering required — jumper wires only.
+ 
+| RFM95W Pin | STM32 Pin | ZIO Location | Notes |
+|------------|-----------|--------------|-------|
+| SCK        | PA5       | CN7 pin 10   | SPI1 clock |
+| MISO       | PA6       | CN7 pin 12   | SPI1 MISO |
+| MOSI       | PB5       | CN7 pin 14   | SPI1 MOSI — note: PB5 not PA7 on H755 |
+| NSS (CS)   | PD14      | CN7 pin 16   | Software controlled chip select |
+| RESET      | PD15      | CN7 pin 18   | Active low reset |
+| DIO0       | PG9       | CN10 pin 20  | TX done / RX done interrupt |
+| 3.3V       | 3V3       | CN8 pin 7    | Power |
+| GND        | GND       | CN8 pin 11   | Ground |
+ 
+> **Important:** The STM32H755ZI-Q routes SPI1 MOSI through **PB5**, not PA7. PA7 is used on other H7 variants. Using PA7 will result in no data transmission.
+ 
 ---
-
-## Architecture
-
-The STM32H755 is a dual-core processor. The **CM4 core** exclusively handles the LoRa communication subsystem described here. The **CM7 core** is used by a separate subsystem handling sensor integration and path planning.
-
-The LoRa link is configured as follows:
-
+ 
+## LoRa Configuration
+ 
+Both the STM32 and SAMD21 must use identical settings or they cannot hear each other.
+ 
 | Parameter | Value |
 |-----------|-------|
 | Frequency | 915 MHz (US ISM band) |
@@ -63,100 +94,168 @@ The LoRa link is configured as follows:
 | Bandwidth | 125 kHz |
 | Coding Rate | 4/5 |
 | TX Power | 17 dBm |
-
-At these settings the link achieves approximately 10-20 km range on open water with an expected airtime of ~70ms per packet. The US ISM band has no duty cycle restrictions so 1Hz transmission is well within legal limits.
-
+| Header Mode | Explicit |
+| CRC | Enabled |
+ 
+At SF7/125 kHz each packet has approximately 70 ms airtime. Transmitting at 1 Hz gives roughly 7% duty cycle — well within US ISM band limits, which impose no duty cycle restrictions. Expected range on open water with clear line of sight: **10–20 km**.
+ 
 ---
-
-## Scripts
-
-### `./build.sh [-cm4|-cm7|-startup]`
-
-The build script is used to set up the repo on first clone or compile individual processor `.elf` files.
-
-- `-startup` — Run once after first cloning the repo. Installs tools, configures projects, and builds both processors.
-- `-cm4` — Builds the CM4 `.elf` only, without performing the startup routine.
-- `-cm7` — Builds the CM7 `.elf` only, without performing the startup routine.
-- Both `-cm4` and `-cm7` can be declared at the same time to build both `.elf` files.
-
-### `./flash.sh [-cm4|-cm7|-b]`
-
-The flash script is used to build and flash the STM32 for a specific processor.
-
-- `-cm4` — Flashes the CM4 processor.
-- `-cm7` — Flashes the CM7 processor.
-- `-b` — Builds the binary for the declared processors before flashing. If `-b` is omitted the script will flash only, no build.
-- If both `-cm4` and `-cm7` are declared, the script will always flash CM7 first and then CM4.
-
-> **Note:** The CM7 must always be flashed before the CM4. The dual-core boot sequence requires the CM7 to release a hardware semaphore before the CM4 will exit stop mode and begin executing.
-
----
-
-## How To Operate
-
-### Boat Side (STM32 CM4)
-
-Connect the STM32 Nucleo board to your computer via USB. On first clone run the startup script:
-
-```bash
-./build.sh -startup
+ 
+## Packet Format
+ 
+### Boat → Ground (1 Hz telemetry)
+ 
+The STM32 sends a framed packet over LoRa:
+ 
+| Byte | Field | Value |
+|------|-------|-------|
+| 0 | Destination address | `0xAA` (SAMD21) |
+| 1 | Source address | `0xBB` (STM32) |
+| 2 | Sequence number | 0–255, wraps |
+| 3 | Payload length | N bytes |
+| 4..N+3 | Payload | ASCII string |
+ 
+The payload is an ASCII string in the format:
 ```
-
-Then build and flash both cores — CM7 first, then CM4:
-
+STATUS,<angle>,<leds>
+```
+Example: `STATUS,-20,5`
+ 
+- `angle` — rudder angle in degrees, range -45 to +45
+- `leds` — bitmask: bit0 = green, bit1 = red, bit2 = yellow
+### Ground → Boat (commands)
+ 
+Single ASCII character commands sent from the SAMD21:
+ 
+| Key | Action |
+|-----|--------|
+| `q` | Rudder +20° |
+| `e` | Rudder -20° |
+| `a` | Rudder +10° |
+| `d` | Rudder -10° |
+| `z` | Rudder +5° |
+| `c` | Rudder -5° |
+| `g` | Toggle green LED |
+| `r` | Toggle red LED |
+| `y` | Toggle yellow LED |
+ 
+Rudder angle is clamped to ±45°.
+ 
+---
+ 
+## Software Requirements
+ 
+- macOS (tested on Mac only)
+- Xcode Command Line Tools:
+```bash
+xcode-select --install
+```
+- Homebrew dependencies:
+```bash
+brew install armmbed/formulae/arm-none-eabi-gcc ninja cmake
+brew reinstall open-ocd
+```
+- PlatformIO (for SAMD21 ground station firmware):
+```bash
+pip install platformio
+```
+- Python dashboard dependencies:
+```bash
+pip install flask pyserial
+```
+ 
+---
+ 
+## Scripts
+ 
+### `./build.sh [-cm4 | -cm7 | -startup]`
+ 
+Builds the STM32 firmware.
+ 
+- `-startup` — Run once after first cloning. Installs tools, configures CMake, and builds both processors.
+- `-cm4` — Builds the CM4 `.elf` only.
+- `-cm7` — Builds the CM7 `.elf` only.
+- Both flags can be combined: `./build.sh -cm4 -cm7`
+> **Note:** The `-startup` flag attempts to install dependencies via `apt-get` which does not exist on macOS. Use the manual `brew` commands above instead, then run `./build.sh -cm4 -cm7` to build.
+ 
+### `./flash.sh [-cm4 | -cm7 | -b]`
+ 
+Flashes the STM32 over USB via OpenOCD.
+ 
+- `-cm4` — Flashes the CM4 processor (Bank 2, `0x08100000`).
+- `-cm7` — Flashes the CM7 processor (Bank 1, `0x08000000`).
+- `-b` — Builds before flashing. Omit to flash an already-built binary.
+- Both flags can be combined. **CM7 is always flashed before CM4.**
+> **Note:** Always flash CM7 before CM4. The dual-core boot sequence requires the CM7 to release a hardware semaphore before the CM4 will exit stop mode and begin executing. Flashing CM4 alone will result in the CM4 hanging at startup.
+ 
+---
+ 
+## How To Operate
+ 
+### First Time Setup
+ 
+```bash
+git clone <repo-url>
+cd Autonomous-Sailboat
+# install brew dependencies manually (see Software Requirements above)
+./build.sh -cm4 -cm7
+```
+ 
+### Boat Side (STM32)
+ 
+Flash both cores — CM7 first, then CM4:
+ 
+```bash
+./flash.sh -cm7
+./flash.sh -cm4
+```
+ 
+Or build and flash in one step:
+ 
 ```bash
 ./flash.sh -b -cm7
 ./flash.sh -b -cm4
 ```
-
-On subsequent builds you can use `-cm4` or `-cm7` individually without `-startup`. Once running, connect a UART serial adapter to monitor incoming commands and outgoing telemetry.
-
+ 
+Once running, connect a UART serial adapter and open a terminal at **115200 baud, 8N1**. You will see output like:
+ 
+```
+[TX] STATUS,0,4
+[RX] cmd len=1 byte0=0x71
+[TX] STATUS,20,4
+```
+ 
 ### Ground Station (SAMD21)
-
-Switch to the ground station branch:
-
+ 
+Switch to the ground station branch and follow its README:
+ 
 ```bash
 git checkout SAMD21_LoRa
+pio run -t upload
 ```
-
-Follow the instructions in the `SAMD21_LoRa` branch README to build and flash. Once running you have two options:
-
-**Option 1 — Serial terminal direct control**
-
-Open a serial monitor and send single character commands:
-
-| Key | Action |
-|-----|--------|
-| `q` | Servo +20° |
-| `e` | Servo -20° |
-| `a` | Servo +10° |
-| `d` | Servo -10° |
-| `z` | Servo +5° |
-| `c` | Servo -5° |
-| `g` | Toggle green LED |
-| `y` | Toggle yellow LED |
-| `r` | Toggle red LED |
-
-**Option 2 — Web dashboard**
-
+ 
+**Option 1 — Serial terminal:**
+ 
 ```bash
-python3 dashboard.py [port] [baud_rate]
+pio device monitor
 ```
-
-This opens a browser-based GUI at `localhost` for monitoring vessel state and sending commands visually.
-
----
-
-## Repository Structure
-
+ 
+Type single character commands directly into the terminal (`q`, `e`, `a`, `d`, `z`, `c`, `g`, `r`, `y`).
+ 
+**Option 2 — Web dashboard:**
+ 
+```bash
+python3 dashboard.py <port> <baud_rate>
 ```
-├── CM4/                  # STM32 CM4 LoRa firmware
-│   └── Core/Src/
-│       ├── main.c
-│       ├── lora.c        # LoRa driver (SPI, register config, TX/RX)
-│       └── lora.h
-├── CM7/                  # STM32 CM7 firmware (sensor/path planning subsystem)
-├── build.sh              # Build script for STM32
-├── flash.sh              # Flash script for STM32
-└── docs/                 # Project documentation
+ 
+Example:
+```bash
+python3 dashboard.py /dev/cu.usbmodem1101 115200
 ```
+ 
+Then open `http://localhost:8080` in a browser. The dashboard displays:
+- Live rudder angle gauge
+- LED status indicators (green, red, yellow)
+- Packet sequence number and last update timestamp
+- Clickable command buttons (keyboard shortcuts also work)
+- Raw serial output from the SAMD21
