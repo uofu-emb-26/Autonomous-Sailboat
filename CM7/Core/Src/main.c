@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 #include "button.h"
+#include "flash.h"
 
 #include "servoSail.h"
 #include "servoRudder.h"
@@ -225,6 +226,9 @@ void hardware_init(void)
 
   /* USER CODE BEGIN SysInit */
   /* Initialize application peripherals before any RTOS tasks start running. */
+  // flashStorage_runMagicStringTest();
+  // HAL_Delay(20000);
+
   button_hardwareInit();
 
   servoSail_hardwareInit();
@@ -232,7 +236,7 @@ void hardware_init(void)
 
   sensorWind_hardwareInit();
   sensorMagnetometer_hardwareInit();
-  sensorGPS_hardwareInit();
+ // sensorGPS_hardwareInit();
   /* USER CODE END SysInit */
 
   /* USER CODE BEGIN 2 */
@@ -249,12 +253,10 @@ void rtos_init()
   if ((semphr_button = xSemaphoreCreateBinary()) == NULL) { Error_Handler(); }
 
   // Launch one task per control/input subsystem.
-  if (xTaskCreate(button_handler,             "buttonTask",             256, NULL, osPriorityAboveNormal, &task_button)             != pdPASS) { Error_Handler(); }
+  if (xTaskCreate(button_handler,             "buttonTask",             256, NULL, osPriorityNormal, &task_button)             != pdPASS) { Error_Handler(); }
   if (xTaskCreate(servoSail_handler,          "servoSailTask",          128, NULL, osPriorityNormal,      &task_servoSail)          != pdPASS) { Error_Handler(); }
   if (xTaskCreate(servoRudder_handler,        "servoRudderTask",        128, NULL, osPriorityNormal,      &task_servoRudder)        != pdPASS) { Error_Handler(); }
   if (xTaskCreate(sensorWind_handler,         "sensorWindTask",         512, NULL, osPriorityNormal, &task_sensorWind)         != pdPASS) { Error_Handler(); }
   if (xTaskCreate(sensorMagnetometer_handler, "sensorMagnetometerTask", 256, NULL, osPriorityNormal, &task_sensorMagnetometer) != pdPASS) { Error_Handler(); }
   if (xTaskCreate(sensorGPS_handler,          "sensorGPSTask",          512, NULL, osPriorityNormal, &task_sensorGPS)     != pdPASS) { Error_Handler(); }
-
-  button_activateControlMode(CONTROL_MODE_SERVO_SAIL);
 }

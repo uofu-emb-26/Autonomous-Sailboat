@@ -1,61 +1,70 @@
 #include "main.h"
 #include "button.h"
+#include "flash.h"
 #include "servoSail.h"
 #include "stm32h7xx_hal_i2c.h"
 #include <stdbool.h>
 #include <stdint.h>
-#include "sensorMagnetometer.h"
 #include <math.h>
+#include <string.h>
+
+#include "sensorMagnetometer.h"
 
 /* BNO055 device and register addresses. */
-#define BNO055_ADDR  0x28  // ADR pin LOW (default Adafruit breakout). Use 0x29 if ADR pin is HIGH.
-#define BNO055_WHO_AM_I 0x00
-#define BNO055_ACC 0x01
-#define BNO055_MAG 0x02
-#define BNO055_GYRO 0x03
-#define BNO055_ACCX_LSB 0x08
-#define BNO055_ACCX_MSB 0x09
-#define BNO055_ACCY_LSB 0x0A
-#define BNO055_ACCY_MSB 0x0B
-#define BNO055_ACCZ_LSB 0x0C
-#define BNO055_ACCZ_MSB 0x0D
-#define BNO055_MAGX_LSB 0x0E
-#define BNO055_MAGX_MSB 0x0F
-#define BNO055_MAGY_LSB 0x10
-#define BNO055_MAGY_MSB 0x11
-#define BNO055_MAGZ_LSB 0x12
-#define BNO055_MAGZ_MSB 0x13
-#define BNO055_GYRX_LSB 0x14
-#define BNO055_GYRX_MSB 0x15
-#define BNO055_GYRY_LSB 0x16
-#define BNO055_GYRY_MSB 0x17
-#define BNO055_GYRZ_LSB 0x18
-#define BNO055_GYRZ_MSB 0x19
-#define BNO055_EUL_HEADING_LSB 0x1A
-#define BNO055_EUL_HEADING_MSB 0x1B
-#define BNO055_Quaternion_LSB 0x20
-#define BNO055_ST_RESULT 0x36
-#define BNO055_SYS_STAT 0x39
-#define BNO055_SYS_ERROR 0x3A
-#define BNO055_OPR_MODE 0x3D
-#define BNO55_CALIB_STATE 0x35
-#define BNO055_CALIB 0x55
+#define ADDR  0x28  // ADR pin LOW (default Adafruit breakout). Use 0x29 if ADR pin is HIGH.
+#define WHO_AM_I 0x00
+#define ACC 0x01
+#define MAG 0x02
+#define GYRO 0x03
+#define ACCX_LSB 0x08
+#define ACCX_MSB 0x09
+#define ACCY_LSB 0x0A
+#define ACCY_MSB 0x0B
+#define ACCZ_LSB 0x0C
+#define ACCZ_MSB 0x0D
+#define MAGX_LSB 0x0E
+#define MAGX_MSB 0x0F
+#define MAGY_LSB 0x10
+#define MAGY_MSB 0x11
+#define MAGZ_LSB 0x12
+#define MAGZ_MSB 0x13
+#define GYRX_LSB 0x14
+#define GYRX_MSB 0x15
+#define GYRY_LSB 0x16
+#define GYRY_MSB 0x17
+#define GYRZ_LSB 0x18
+#define GYRZ_MSB 0x19
+#define EUL_HEADING_LSB 0x1A
+#define EUL_HEADING_MSB 0x1B
+#define EUL_ROLL_LSB 0x1C   // Roll (heel angle)
+#define EUL_PITCH_LSB 0x1E   // Pitch (trim angle)
+#define QUATERNION_LSB 0x20
+#define LIA_DATA_X_LSB   0x28   // Linear Accel X (gravity removed)
+#define LIA_DATA_Y_LSB   0x2A   // Linear Accel Y
+#define LIA_DATA_Z_LSB   0x2C   // Linear Accel Z
+#define ST_RESULT 0x36
+#define SYS_STAT 0x39
+#define SYS_ERROR 0x3A
+#define OPR_MODE 0x3D
+#define CALIB_STATE 0x35
+#define CALIB 0x55
 #define CALIB_OFFSET_SIZE 22
-#define BNOSS_SICMATRIX 0x43
+#define SICMATRIX 0x43
+#define CALIB_SICMATRIX_SIZE 18
 
-#define BNO055_OPR_MODE_CONFIG 0x00
-#define BNO055_OPR_MODE_ACCONLY 0x01
-#define BNO055_OPR_MODE_MAGONLY 0x02
-#define BNO055_OPR_MODE_GYROONLY 0x03
-#define BNO055_OPR_MODE_ACCMAG 0x04
-#define BNO055_OPR_MODE_ACCGYRO 0x05
-#define BNO055_OPR_MODE_MAGGYRO 0x06
-#define BNO055_OPR_MODE_AMG 0x07
-#define BNO055_OPR_MODE_IMUPLUS 0x08
-#define BNO055_OPR_MODE_COMPASS 0x09
-#define BNO055_OPR_MODE_M4G 0x0A
-#define BNO055_OPR_MODE_NDOF_FMC_OFF 0x0B
-#define BNO055_OPR_MODE_NDOF 0x0C
+#define OPR_MODE_CONFIG 0x00
+#define OPR_MODE_ACCONLY 0x01
+#define OPR_MODE_MAGONLY 0x02
+#define OPR_MODE_GYROONLY 0x03
+#define OPR_MODE_ACCMAG 0x04
+#define OPR_MODE_ACCGYRO 0x05
+#define OPR_MODE_MAGGYRO 0x06
+#define OPR_MODE_AMG 0x07
+#define OPR_MODE_IMUPLUS 0x08
+#define OPR_MODE_COMPASS 0x09
+#define OPR_MODE_M4G 0x0A
+#define OPR_MODE_NDOF_FMC_OFF 0x0B
+#define OPR_MODE_NDOF 0x0C
 
 #define TRUE 0x01
 #define FALSE 0x00
@@ -68,6 +77,8 @@
 #define FLOAT_INT(f)  ((int)(f))
 #define FLOAT_FRAC(f) ((int)(fabsf((f) - (int)(f)) * 10000))
 
+TaskHandle_t task_sensorMagnetometer = NULL;
+
 /* Internal helpers used during initialization, sampling, and calibration. */
 void setOperationMode(uint8_t mode);
 static void readChip(uint8_t regADDR, const char *name);
@@ -77,49 +88,52 @@ void readACC();
 void readGYRO();
 void readSelfTest();
 void readGYRO_Vector();
-void readMAG_Vector();
-void readACC_Vector();
+void readQuaternion();
 void readVectorDynamic(uint8_t startReg, uint8_t bytes, const char *name, uint8_t *vectorData);
-uint8_t checkCalibration();
-void saveCalibrationData();
-void loadCalibrationData();
+static uint8_t calibrationProcedure(uint8_t targetMode, uint8_t startMode, bool recalibrate, bool sicMatrix);
+uint8_t checkCalibration(int onlySysGyro);
+void saveCalibrationData(bool sicMatrix);
+void loadCalibrationData(bool sicMatrix);
 void fillStruct();
 void printIMU();
 
-#pragma pack(1) // Keep the layout stable if this struct is shared across cores.
 typedef struct {
-    // Raw sensor vectors
-    int16_t acc_x,  acc_y,  acc_z;
+    // Euler angles direct from chip. 1 degree = 16 LSB.
+    // heading: 0–5759 (0–359.9°), roll: -2879–2879, pitch: -1439–1439
+    int16_t heading;     // Compass heading (yaw), 0–360°
+    int16_t roll;        // Heel angle, port(-) / starboard(+)
+    int16_t pitch;       // Trim angle, bow-up(+) / bow-down(-)
+
+    // --- Fusion: Quaternion (for control math, SLERP, etc.) ---
+    int16_t quat_w, quat_x, quat_y, quat_z;
+
+    // --- Fusion: Linear Acceleration (gravity already removed by BNO055) ---
+    // 1 m/s² = 100 LSB
+    int16_t lia_x, lia_y, lia_z;
+
+    // --- Raw: Angular Rate (rate of turn — useful for autopilot) ---
+    // 1 dps = 16 LSB (default), or 1 rps = 900 LSB
     int16_t gyro_x, gyro_y, gyro_z;
-    int16_t mag_x,  mag_y,  mag_z;
 
-    //Quaternion Fusion Mode Values
-    int16_t w, x, y, z;
-
-    // Incremented when fresh fused data is copied into the struct.
+    // --- Status ---
+    uint8_t calib_stat;   // bits[7:6]=sys, [5:4]=gyro, [3:2]=acc, [1:0]=mag (3=fully calib)
     uint32_t update_count;
 } IMU_Data;
-#pragma pack()
 
 /* Shared IMU sample data, I2C handle, and task state. */
 IMU_Data IMU = {0};
-TaskHandle_t task_sensorMagnetometer;
 I2C_HandleTypeDef I2C_BNO055_Handle;
 uint8_t currentMode;
-uint8_t targetMode;
 int16_t servoAngle;
-static volatile sensorMagnetometerMode_t magnetometerTaskMode = SENSOR_MAG_MODE_YAW;
-static uint8_t isCalibrated = TRUE;
+static uint8_t isCalibrated = FALSE;
 
-#define SENSOR_MAG_ACTIVE_PERIOD_MS 1
-#define SENSOR_MAG_IDLE_PERIOD_MS 20
+static uint8_t savedOffsets[CALIB_OFFSET_SIZE] = {0};
+static uint8_t savedSicMatrix[CALIB_SICMATRIX_SIZE] = {0};
 
-static uint8_t savedOffsets[CALIB_OFFSET_SIZE] = {
-    0xDD, 0xFF, 0xCC, 0xFF, 0xDD, 0xFF,   // accel X, Y, Z
-    0xE2, 0xFF, 0x01, 0x00, 0xEF, 0xFD,   // mag   X, Y, Z
-    0xFE, 0xFF, 0x01, 0x00, 0x00, 0x00,   // gyro  X, Y, Z
-    0xE8, 0x03, 0xE5, 0x01                // accel radius, mag radius
-};
+// User Calculated sicMatrix to be saved to flash memory and written to IMU
+static uint8_t UserMadeSicMatrix[CALIB_SICMATRIX_SIZE] = {0x1,0x2,0x3,0x4,0x5,0x6,
+    0x7,0x8,0x8,0xA,0xB,0xC,0xD,0xE,0xF,0x10,0x11,0x12};
+
 /**
   * @brief Configure I2C2 and initialize the BNO055 sensor.
   */
@@ -142,7 +156,7 @@ void sensorMagnetometer_hardwareInit()
     // HAL_StatusTypeDef HAL_I2C_Init(I2C_HandleTypeDef *hi2c);                      line 601 of Stm32h7xx_hal_i2c.h
     // I2C_TypeDef                *Instance;      /*!< I2C registers base address    line 186 of Stm32h7xx_hal_i2c.h
     // I2C_InitTypeDef            Init;           /*!< I2C communication parameters  line 187 of Stm32h7xx_hal_i2c.h
-    I2C_BNO055_Handle.Instance = I2C2; 
+    I2C_BNO055_Handle.Instance = I2C2;
 
     //<---------------Connor and Charbel Timing Setup----------------->
     // Use table example in reference manual (use 64Mhz base clock divide by 16 to get 4MHz)
@@ -189,57 +203,26 @@ void sensorMagnetometer_hardwareInit()
 
     readWhoAmI();
     readSelfTest();
-    // Track the current chip mode locally and request fused orientation output by default.
-    currentMode = BNO055_OPR_MODE_CONFIG;
-    targetMode = BNO055_OPR_MODE_NDOF;
+    
+    // Args: desired fusion mode, starting mode, recalibrate, save/load SIC Matrix.
+    calibrationProcedure(OPR_MODE_NDOF, OPR_MODE_CONFIG, false, false);
+}
 
-    if (!(targetMode >= BNO055_OPR_MODE_IMUPLUS && targetMode <= BNO055_OPR_MODE_NDOF))
+/**
+  * @brief Run the active magnetometer mode and mirror the selected angle onto the sail servo.
+  * @param argument Unused RTOS task argument.
+  */
+void sensorMagnetometer_handler(void *argument)
+{
+    int32_t count = 0;
+    for(;;)
     {
-        // Non-fusion mode — just set it, no calibration needed
-        setOperationMode(targetMode);
-    }
-    else if (isCalibrated) {
-        // Step 1: Must be in CONFIG mode to write offsets (chip powers on here anyway)
-        setOperationMode(BNO055_OPR_MODE_CONFIG);
-
-        // Step 2: Write saved offsets — gives fusion algorithm a head start
-        loadCalibrationData();
-
-        // Step 3: Enter fusion mode — algorithm starts running and will calibrate
-        setOperationMode(targetMode);
-
-        // Step 4: poll calibration status but with offsets loaded
-        printf("Offsets loaded — waiting for fusion algorithm to confirm calibration...\r\n");
-        while (checkCalibration(1) == 0)
-        {
-            HAL_Delay(500);
+        fillStruct();
+        count++;
+        if (count == 1000) {
+            printIMU();
+            count = 0;
         }
-        printf("Calibration confirmed\r\n");
-    }
-    else
-    {
-        // First boot in fusion mode — must set fusion mode FIRST so the calibration
-        // algorithm runs, then poll until all three sensors reach 3/3
-
-        setOperationMode(targetMode);
-        HAL_Delay(20);
-
-        printf("Move sensor in figure-8 for mag, hold 6 orientations for acc, keep still for gyro\r\n");
-        int count = 0;
-        while (checkCalibration(0) == 0 && count < 90)
-        {
-            count++;
-            HAL_Delay(2000);
-        }
-
-        // saveCalibrationOffsets switches to CONFIG_MODE internally to read offsets
-        saveCalibrationData();
-        HAL_Delay(1000);
-        isCalibrated = TRUE;
-        printf("BNO055 fully calibrated\r\n");
-
-        // Restore fusion mode (saveCalibrationData() left chip in CONFIG_MODE)
-        setOperationMode(targetMode);
     }
 }
 
@@ -249,153 +232,48 @@ void sensorMagnetometer_hardwareInit()
   */
 void setOperationMode(uint8_t mode)
 {
-    HAL_I2C_Mem_Write(&I2C_BNO055_Handle, BNO055_ADDR << 1, BNO055_OPR_MODE, I2C_MEMADD_SIZE_8BIT, &mode, 1, 1000);
+    HAL_I2C_Mem_Write(&I2C_BNO055_Handle, ADDR << 1, OPR_MODE, I2C_MEMADD_SIZE_8BIT, &mode, 1, 1000);
     HAL_Delay(25); // small delay to allow mode switch to take effect
     currentMode = mode;
 }
 
-/**
-  * @brief Select which Euler axis the magnetometer task should publish.
-  * @param mode Requested magnetometer output mode.
-  */
-void sensorMagnetometer_setMode(sensorMagnetometerMode_t mode)
-{
-    magnetometerTaskMode = mode;
+// Read Euler angles directly from BNO055 (heading, roll, pitch in one 6-byte burst)
+void readEuler_Direct() {
+    uint8_t data[6] = {0};
+    readVectorDynamic(EUL_HEADING_LSB, 6, "Euler", data);
+    IMU.heading = (int16_t)((data[1] << 8) | data[0]);  // Heading/Yaw
+    IMU.roll    = (int16_t)((data[3] << 8) | data[2]);  // Roll
+    IMU.pitch   = (int16_t)((data[5] << 8) | data[4]);  // Pitch
 }
 
-/**
-  * @brief Return the currently selected magnetometer output mode.
-  * @return Active magnetometer task mode.
-  */
-sensorMagnetometerMode_t sensorMagnetometer_getMode(void)
-{
-    return magnetometerTaskMode;
+// Linear acceleration with gravity removed (fusion output)
+void readLinearAccel() {
+    uint8_t data[6] = {0};
+    readVectorDynamic(LIA_DATA_X_LSB, 6, "LIA", data);
+    IMU.lia_x = (int16_t)((data[1] << 8) | data[0]);
+    IMU.lia_y = (int16_t)((data[3] << 8) | data[2]);
+    IMU.lia_z = (int16_t)((data[5] << 8) | data[4]);
 }
 
-/**
-  * @brief Convert the latest quaternion sample into Euler roll, pitch, and yaw angles.
-  * @param roll Destination for roll in degrees.
-  * @param pitch Destination for pitch in degrees.
-  * @param yaw Destination for yaw in degrees.
-  */
-static void sensorMagnetometer_readEulerDegrees(int16_t *roll, int16_t *pitch, int16_t *yaw)
-{
-    float w = IMU.w / 16384.0f;
-    float x = IMU.x / 16384.0f;
-    float y = IMU.y / 16384.0f;
-    float z = IMU.z / 16384.0f;
-
-    *roll = (int16_t)(atan2f(2.0f * (w*x + y*z), 1.0f - 2.0f * (x*x + y*y)) * (180.0f / M_PI));
-    *pitch = (int16_t)(asinf(2.0f * (w*y - z*x)) * (180.0f / M_PI));
-    *yaw = (int16_t)(atan2f(2.0f * (w*z + x*y), 1.0f - 2.0f * (y*y + z*z)) * (180.0f / M_PI));
+void readCalibStatus() {
+    HAL_I2C_Mem_Read(&I2C_BNO055_Handle, ADDR << 1,
+        CALIB_STATE, I2C_MEMADD_SIZE_8BIT, &IMU.calib_stat, 1, 1000);
 }
 
-/**
-  * @brief Read a fresh IMU sample and update the servo target from yaw.
-  */
-static void sensorMagnetometer_runYawMode(void)
-{
-    int16_t roll;
-    int16_t pitch;
-    int16_t yaw;
-
-    fillStruct();
-    sensorMagnetometer_readEulerDegrees(&roll, &pitch, &yaw);
-    // printf("Mag yaw: %d.%04d deg\r\n",
-    //        FLOAT_INT(yaw),
-    //        FLOAT_FRAC(yaw));
-    servoAngle = yaw;
-}
-
-/**
-  * @brief Read a fresh IMU sample and update the servo target from pitch.
-  */
-static void sensorMagnetometer_runPitchMode(void)
-{
-    int16_t roll;
-    int16_t pitch;
-    int16_t yaw;
-
-    fillStruct();
-    sensorMagnetometer_readEulerDegrees(&roll, &pitch, &yaw);
-    // printf("Mag pitch: %d.%04d deg\r\n",
-    //        FLOAT_INT(pitch),
-    //        FLOAT_FRAC(pitch));
-     servoAngle = (int16_t)((int32_t)pitch * 3 / 2);
-}
-
-/**
-  * @brief Read a fresh IMU sample and update the servo target from roll.
-  */
-static void sensorMagnetometer_runRollMode(void)
-{
-    int16_t roll;
-    int16_t pitch;
-    int16_t yaw;
-
-    fillStruct();
-    sensorMagnetometer_readEulerDegrees(&roll, &pitch, &yaw);
-    // printf("Mag roll: %d.%04d deg\r\n",
-    //        FLOAT_INT(roll),
-    //        FLOAT_FRAC(roll));
-    servoAngle = roll;
-}
-
-/**
-  * @brief Run the active magnetometer mode and mirror the selected angle onto the sail servo.
-  * @param argument Unused RTOS task argument.
-  */
-void sensorMagnetometer_handler(void *argument)
-{
-    for(;;)
-    {
-        controlMode_t activeMode = button_getCurrentControlMode();
-        if (activeMode != CONTROL_MODE_MAG_YAW &&
-            activeMode != CONTROL_MODE_MAG_PITCH &&
-            activeMode != CONTROL_MODE_MAG_ROLL)
-        {
-            vTaskDelay(pdMS_TO_TICKS(SENSOR_MAG_IDLE_PERIOD_MS));
-            continue;
-        }
-
-        uint8_t actualMode = 0;
-        HAL_I2C_Mem_Read(&I2C_BNO055_Handle, BNO055_ADDR << 1,
-                        BNO055_OPR_MODE, I2C_MEMADD_SIZE_8BIT,
-                        &actualMode, 1, 1000);
-        // printf("Chip OPR_MODE is %s: 0x%02X | Expected = 0x%02X\r\n", 
-        //     actualMode == targetMode ? "CORRECT" : "INCORRECT",
-        //     actualMode, targetMode);
-
-        switch (sensorMagnetometer_getMode())
-        {
-            case SENSOR_MAG_MODE_YAW:
-                sensorMagnetometer_runYawMode();
-                break;
-
-            case SENSOR_MAG_MODE_PITCH:
-                sensorMagnetometer_runPitchMode();
-                break;
-
-            case SENSOR_MAG_MODE_ROLL:
-                sensorMagnetometer_runRollMode();
-                break;
-
-            default:
-                vTaskDelay(pdMS_TO_TICKS(1000));
-                break;
-        }
-
-        // Reuse the sail servo as the visible output for the selected IMU angle.
-        servoSail_setAngle(servoAngle);
-        vTaskDelay(pdMS_TO_TICKS(SENSOR_MAG_ACTIVE_PERIOD_MS));
-    }
+void fillStruct() {
+    readEuler_Direct();       // Heading, roll, pitch — direct from fusion engine
+    readQuaternion();         // For accurate attitude math
+    readLinearAccel();        // Gravity-free acceleration
+    readGYRO_Vector();        // Rate of turn
+    readCalibStatus();        // Calibration health
+    IMU.update_count++;
 }
 
 /**
   * @brief Read and verify the BNO055 chip ID register.
   */
 void readWhoAmI() {
-    readChip(BNO055_WHO_AM_I, "Who Am I");
+    readChip(WHO_AM_I, "Who Am I");
 }
 
 /**
@@ -410,7 +288,7 @@ static void readChip(uint8_t regADDR, const char *name)
 
     HAL_StatusTypeDef info;
 
-    info = HAL_I2C_Mem_Read(&I2C_BNO055_Handle, BNO055_ADDR << 1, regADDR,
+    info = HAL_I2C_Mem_Read(&I2C_BNO055_Handle, ADDR << 1, regADDR,
                             I2C_MEMADD_SIZE_8BIT, &receiveBuff, 1, 5000);
 
     if (info != HAL_OK) {
@@ -421,11 +299,11 @@ static void readChip(uint8_t regADDR, const char *name)
     }
 
     switch (regADDR) {
-        case BNO055_WHO_AM_I: expected = 0xA0; break;
-        case BNO055_ACC: expected = 0xFB; break;
-        case BNO055_MAG: expected = 0x32; break;
-        case BNO055_GYRO: expected = 0x0F; break;
-        case BNO055_ST_RESULT: expected = 0x0F; break;
+        case WHO_AM_I: expected = 0xA0; break;
+        case ACC: expected = 0xFB; break;
+        case MAG: expected = 0x32; break;
+        case GYRO: expected = 0x0F; break;
+        case ST_RESULT: expected = 0x0F; break;
         default: expected = 0xff;
     }
 
@@ -444,7 +322,7 @@ static void readChip(uint8_t regADDR, const char *name)
   */
 void readMAG()
 {   
-    readChip(BNO055_MAG, "MAG");
+    readChip(MAG, "MAG");
 }
 
 /**
@@ -452,7 +330,7 @@ void readMAG()
   */
 void readACC()
 {   
-    readChip(BNO055_ACC, "ACC");
+    readChip(ACC, "ACC");
 }
 
 /**
@@ -460,7 +338,7 @@ void readACC()
   */
 void readGYRO()
 {   
-    readChip(BNO055_GYRO, "GYRO");
+    readChip(GYRO, "GYRO");
 }
 
 /**
@@ -468,7 +346,7 @@ void readGYRO()
   */
 void readSelfTest()
 {   
-    readChip(BNO055_ST_RESULT, "Self-Test Result");
+    readChip(ST_RESULT, "Self-Test Result");
 }
 
 /**
@@ -486,7 +364,7 @@ static void BNO055_readVector(uint8_t startReg, const char *name, int16_t *xData
 
     if ((info = HAL_I2C_Mem_Read(
         &I2C_BNO055_Handle,
-        BNO055_ADDR << 1,       // 7-bit addr shifted for HAL
+        ADDR << 1,              // 7-bit addr shifted for HAL
         startReg,               // register to start reading from
         I2C_MEMADD_SIZE_8BIT,   // BNO055 uses 8-bit register addresses
         data,                   // output buffer
@@ -505,27 +383,11 @@ static void BNO055_readVector(uint8_t startReg, const char *name, int16_t *xData
 }
 
 /**
-  * @brief Refresh the accelerometer sample stored in the IMU struct.
-  */
-void readACC_Vector()
-{
-    BNO055_readVector(BNO055_ACCX_LSB, "ACC", &IMU.acc_x, &IMU.acc_y, &IMU.acc_z);
-}
-
-/**
-  * @brief Refresh the magnetometer sample stored in the IMU struct.
-  */
-void readMAG_Vector()
-{
-    BNO055_readVector(BNO055_MAGX_LSB, "MAG",  &IMU.mag_x, &IMU.mag_y, &IMU.mag_z);
-}
-
-/**
   * @brief Refresh the gyroscope sample stored in the IMU struct.
   */
 void readGYRO_Vector()
 {
-    BNO055_readVector(BNO055_GYRX_LSB, "GYRO",  &IMU.gyro_x, &IMU.gyro_y, &IMU.gyro_z);
+    BNO055_readVector(GYRX_LSB, "GYRO",  &IMU.gyro_x, &IMU.gyro_y, &IMU.gyro_z);
 }
 
 /**
@@ -541,7 +403,7 @@ void readVectorDynamic(uint8_t startReg, uint8_t bytes, const char *name, uint8_
 
     if ((info = HAL_I2C_Mem_Read(
         &I2C_BNO055_Handle,
-        BNO055_ADDR << 1,       // 7-bit addr shifted for HAL
+        ADDR << 1,              // 7-bit addr shifted for HAL
         startReg,               // register to start reading from
         I2C_MEMADD_SIZE_8BIT,   // BNO055 uses 8-bit register addresses
         vectorData,                 // output buffer
@@ -564,21 +426,11 @@ void readVectorDynamic(uint8_t startReg, uint8_t bytes, const char *name, uint8_
   */
 void readQuaternion() {
     uint8_t quat[8] = {0};
-    readVectorDynamic(BNO055_Quaternion_LSB, 8, "Quaternion Data", quat);
-    IMU.w = (quat[1] << 8) | quat[0];
-    IMU.x = (quat[3] << 8) | quat[2];
-    IMU.y = (quat[5] << 8) | quat[4];
-    IMU.z = (quat[7] << 8) | quat[6];
-}
-
-/**
-  * @brief Read all sensor vectors and fused quaternion data into the shared IMU struct.
-  */
-void fillStruct() {
-    readACC_Vector();
-    readMAG_Vector();
-    readGYRO_Vector();
-    readQuaternion();
+    readVectorDynamic(QUATERNION_LSB, 8, "Quaternion Data", quat);
+    IMU.quat_w = (quat[1] << 8) | quat[0];
+    IMU.quat_x = (quat[3] << 8) | quat[2];
+    IMU.quat_y = (quat[5] << 8) | quat[4];
+    IMU.quat_z = (quat[7] << 8) | quat[6];
 }
 
 /**
@@ -586,44 +438,119 @@ void fillStruct() {
   */
 void printIMU()
 {
-    // Scale quaternion components to unit range [-1, 1]
-    float w = IMU.w / 16384.0f;
-    float x = IMU.x / 16384.0f;
-    float y = IMU.y / 16384.0f;
-    float z = IMU.z / 16384.0f;
+    // Scale Euler: 1 deg = 16 LSB
+    float heading = IMU.heading / 16.0f;
+    float roll    = IMU.roll    / 16.0f;
+    float pitch   = IMU.pitch   / 16.0f;
 
-    // Convert quaternion to Euler angles (radians -> degrees)
-    float roll  = atan2f(2.0f * (w*x + y*z), 1.0f - 2.0f * (x*x + y*y)) * (180.0f / M_PI);
-    float pitch = asinf (2.0f * (w*y - z*x))                              * (180.0f / M_PI);
-    float yaw   = atan2f(2.0f * (w*z + x*y), 1.0f - 2.0f * (y*y + z*z)) * (180.0f / M_PI);
+    // Scale linear accel: 1 m/s² = 100 LSB
+    float lia_x = IMU.lia_x / 100.0f;
+    float lia_y = IMU.lia_y / 100.0f;
+    float lia_z = IMU.lia_z / 100.0f;
+    float lia_mag = sqrtf(lia_x*lia_x + lia_y*lia_y + lia_z*lia_z);
 
-    // Normalize yaw to 0-360 for compass heading
-    if (yaw < 0) yaw += 360.0f;
+    // Gyro: 1 dps = 16 LSB
+    float gyro_z = IMU.gyro_z / 16.0f;  // yaw rate (rate of turn)
 
-    // printf("\r\n========== IMU DATA ==========\r\n");
+    // Calibration bits
+    uint8_t cal_sys  = (IMU.calib_stat >> 6) & 0x03;
+    uint8_t cal_gyro = (IMU.calib_stat >> 4) & 0x03;
+    uint8_t cal_acc  = (IMU.calib_stat >> 2) & 0x03;
+    uint8_t cal_mag  = (IMU.calib_stat >> 0) & 0x03;
 
-    // // Raw vectors
-    // printf("Accel  (raw): X=%6d  Y=%6d  Z=%6d\r\n", IMU.acc_x,  IMU.acc_y,  IMU.acc_z);
-    // printf("Gyro   (raw): X=%6d  Y=%6d  Z=%6d\r\n", IMU.gyro_x, IMU.gyro_y, IMU.gyro_z);
-    // printf("Mag    (raw): X=%6d  Y=%6d  Z=%6d\r\n", IMU.mag_x,  IMU.mag_y,  IMU.mag_z);
+    printf("\r\n===== SAILBOAT IMU =====\r\n");
 
-    // // Instead of: printf("Quat (scaled): W=%7.4f  X=%7.4f  Y=%7.4f  Z=%7.4f\r\n", w, x, y, z);
-    // printf("Quat (scaled): W=%d.%04d  X=%d.%04d  Y=%d.%04d  Z=%d.%04d\r\n",
-    //     FLOAT_INT(w),  FLOAT_FRAC(w),
-    //     FLOAT_INT(x),  FLOAT_FRAC(x),
-    //     FLOAT_INT(y),  FLOAT_FRAC(y),
-    //     FLOAT_INT(z),  FLOAT_FRAC(z));
+    // Navigation heading (most important for autonomous sailing)
+    printf("Heading:  %d.%02d deg  (Compass)\r\n",
+        FLOAT_INT(heading), (int)(fabsf(heading - (int)heading) * 100));
 
-    // // Instead of: printf("Euler: Roll=%7.2f  Pitch=%7.2f  Yaw=%7.2f (deg)\r\n", roll, pitch, yaw);
-    // printf("Euler:  Roll=%d.%04d  Pitch=%d.%04d  Yaw=%d.%04d (deg)\r\n",
-    //     FLOAT_INT(roll),  FLOAT_FRAC(roll),
-    //     FLOAT_INT(pitch), FLOAT_FRAC(pitch),
-    //     FLOAT_INT(yaw),   FLOAT_FRAC(yaw));
+    // Heel and trim
+    printf("Roll:     %d.%02d deg  (+ = starboard heel)\r\n",
+        FLOAT_INT(roll),  (int)(fabsf(roll  - (int)roll)  * 100));
+    printf("Pitch:    %d.%02d deg  (+ = bow up)\r\n",
+        FLOAT_INT(pitch), (int)(fabsf(pitch - (int)pitch) * 100));
 
-    // // Instead of: printf("Heading: %.2f deg\r\n", yaw);
-    // printf("Heading: %d.%04d deg\r\n", FLOAT_INT(yaw), FLOAT_FRAC(yaw));
+    // Rate of turn (autopilot damping)
+    printf("Yaw rate: %d.%02d dps\r\n",
+        FLOAT_INT(gyro_z), (int)(fabsf(gyro_z - (int)gyro_z) * 100));
 
-    // printf("==============================\r\n");
+    // Linear acceleration magnitude (wave/impact detection)
+    printf("Accel:    %d.%02d m/s2 (no gravity, |total|=%d.%02d)\r\n",
+        FLOAT_INT(lia_x), (int)(fabsf(lia_x - (int)lia_x) * 100),
+        FLOAT_INT(lia_mag), (int)(fabsf(lia_mag - (int)lia_mag) * 100));
+
+    // Calibration health — critical for trusting heading
+    printf("Calib:    Sys=%d/3 Gyro=%d/3 Acc=%d/3 Mag=%d/3  %s\r\n",
+        cal_sys, cal_gyro, cal_acc, cal_mag,
+        (cal_sys == 3 && cal_mag == 3) ? "[OK]" : "[WARN: heading unreliable]");
+
+    printf("==================================\r\n");
+}
+
+/**
+ * @brief Restore saved calibration data when available, or run a new BNO055 calibration pass.
+ * @param targetMode Operating mode to use after calibration handling completes.
+ * @param startMode Caller-supplied current operating mode state before transitions begin.
+ * @param recalibrate When true, force a new calibration pass even if flash data exists.
+ * @param sicMatrix When true, load/save the SIC matrix alongside the standard offsets.
+ * @return Non-zero when the procedure reaches its configured end state.
+ */
+static uint8_t calibrationProcedure(uint8_t targetMode, uint8_t startMode, bool recalibrate, bool sicMatrix) {
+    // initialize calibrationData
+    FlashCalibData_t flashCalibData = {0};
+
+    currentMode = startMode;
+
+    // Loads flash calibration data from flash memory
+    if (flashStorage_read(&flashCalibData)) {
+        isCalibrated = flashCalibData.isCalibrated;
+        memcpy(savedOffsets, flashCalibData.offsets, sizeof(savedOffsets));
+        memcpy(savedSicMatrix, flashCalibData.sicMatrix, sizeof(savedSicMatrix));
+        printf("Flash calibration loaded: calibrated=%u offset[0..1]=%02X %02X sic[0..1]=%02X %02X\r\n",
+               isCalibrated,
+               savedOffsets[0], savedOffsets[1],
+               savedSicMatrix[0], savedSicMatrix[1]);
+    } else {
+        isCalibrated = FALSE;
+        memset(savedOffsets, 0, sizeof(savedOffsets));
+    }
+
+    // If non-fusion mode, just sets operation mode and return
+    if (!(targetMode >= OPR_MODE_IMUPLUS && targetMode <= OPR_MODE_NDOF))
+    {
+        setOperationMode(targetMode);
+        return TRUE;
+    }
+
+    // If already calibrated and not recalirating, load caliration data and return
+    if (isCalibrated && !recalibrate) {
+        loadCalibrationData(sicMatrix);
+        setOperationMode(targetMode);
+        return TRUE;
+    }
+
+    // Go through full calibration procedure
+    setOperationMode(targetMode);
+    HAL_Delay(20);
+
+    printf("%s: Move sensor in figure-8 for mag, hold 6 orientations for acc, keep still for gyro\r\n",
+         recalibrate ? "Recalibrating: " : "Calibrating: ");
+    HAL_Delay(1000);
+    int count = 0;
+    while (checkCalibration(0) == 0 && count < 90)
+    {
+        count++;
+        HAL_Delay(2000);
+    }
+
+    saveCalibrationData(sicMatrix);
+    HAL_Delay(1000);
+    isCalibrated = TRUE;
+    printf("BNO055 fully calibrated\r\n");
+
+    // saveCalibrationData() leaves the chip in CONFIG mode.
+    setOperationMode(targetMode);
+    return TRUE;
 }
 
 /**
@@ -638,8 +565,8 @@ uint8_t checkCalibration(int onlySysGyro) {
     
     if ((info = HAL_I2C_Mem_Read(
         &I2C_BNO055_Handle,
-        BNO055_ADDR << 1,       // 7-bit addr shifted for HAL
-        BNO55_CALIB_STATE,               // register to start reading from
+        ADDR << 1,              // 7-bit addr shifted for HAL
+        CALIB_STATE,            // register to start reading from
         I2C_MEMADD_SIZE_8BIT,   // BNO055 uses 8-bit register addresses
         &calBuffer,                 // output buffer
         1,                   // number of bytes to read
@@ -666,17 +593,18 @@ uint8_t checkCalibration(int onlySysGyro) {
 /**
   * @brief Read the current calibration offsets from the BNO055 into `savedOffsets`.
   */
-void saveCalibrationData()
+void saveCalibrationData(bool sicMatrix)
 {
     HAL_StatusTypeDef info;
+    FlashCalibData_t flashCalibData = {0};
 
-    setOperationMode(BNO055_OPR_MODE_CONFIG);
+    setOperationMode(OPR_MODE_CONFIG);
     HAL_Delay(20);
 
     if ((info = HAL_I2C_Mem_Read(
         &I2C_BNO055_Handle,
-        BNO055_ADDR << 1,
-        BNO055_CALIB,
+        ADDR << 1,
+        CALIB,
         I2C_MEMADD_SIZE_8BIT,
         savedOffsets,
         CALIB_OFFSET_SIZE,
@@ -687,90 +615,37 @@ void saveCalibrationData()
         return;
     }
 
-    // Check if all offsets are zero
-    uint8_t allZero = 1;
-    for (int i = 0; i < CALIB_OFFSET_SIZE; i++) {
-        if (savedOffsets[i] != 0) { allZero = 0; break; }
+    if (sicMatrix) {
+        // Copy User made SIC Matrix into flash memory struct
+        memcpy(flashCalibData.sicMatrix, UserMadeSicMatrix, sizeof(savedSicMatrix));
     }
 
-    printf("\r\n===== SAVED CALIBRATION OFFSETS =====\r\n");
-    printf("Accel offset:  X=%6d  Y=%6d  Z=%6d\r\n",
-        (int16_t)(savedOffsets[1]  << 8 | savedOffsets[0]),
-        (int16_t)(savedOffsets[3]  << 8 | savedOffsets[2]),
-        (int16_t)(savedOffsets[5]  << 8 | savedOffsets[4]));
-    printf("Mag   offset:  X=%6d  Y=%6d  Z=%6d\r\n",
-        (int16_t)(savedOffsets[7]  << 8 | savedOffsets[6]),
-        (int16_t)(savedOffsets[9]  << 8 | savedOffsets[8]),
-        (int16_t)(savedOffsets[11] << 8 | savedOffsets[10]));
-    printf("Gyro  offset:  X=%6d  Y=%6d  Z=%6d\r\n",
-        (int16_t)(savedOffsets[13] << 8 | savedOffsets[12]),
-        (int16_t)(savedOffsets[15] << 8 | savedOffsets[14]),
-        (int16_t)(savedOffsets[17] << 8 | savedOffsets[16]));
-    printf("Accel radius:  %6d\r\n",
-        (int16_t)(savedOffsets[19] << 8 | savedOffsets[18]));
-    printf("Mag   radius:  %6d\r\n",
-        (int16_t)(savedOffsets[21] << 8 | savedOffsets[20]));
+    flashCalibData.magic = FLASH_STORAGE_MAGIC;
+    flashCalibData.isCalibrated = TRUE;
+    memcpy(flashCalibData.offsets, savedOffsets, sizeof(savedOffsets));
 
-    // Raw hex dump
-    printf("Raw bytes: ");
-    for (int i = 0; i < CALIB_OFFSET_SIZE; i++) printf("%02X ", savedOffsets[i]);
-    printf("\r\n");
-
-    // C array initializer — copy this directly into your hardcoded init
-    printf("Copy this into your code:\r\n");
-    printf("static uint8_t savedOffsets[%d] = {\r\n    ", CALIB_OFFSET_SIZE);
-    for (int i = 0; i < CALIB_OFFSET_SIZE; i++) {
-        printf("0x%02X", savedOffsets[i]);
-        if (i < CALIB_OFFSET_SIZE - 1) printf(", ");
-        if ((i + 1) % 6 == 0) printf("\r\n    ");  // newline every 6 bytes for readability
+    if (flashStorage_write(&flashCalibData) != HAL_OK) {
+        printf("Calibration save to flash FAILED\r\n");
+        return;
     }
-    printf("\r\n};\r\n");
 
-    printf("All zeros: %s\r\n", allZero ? "YES — IMU was NOT calibrated" : "NO — offsets look valid");
-    printf("=====================================\r\n");
+    printf("Calibration saved to flash\r\n");
 }
 
 /**
   * @brief Write the cached calibration offsets back into the BNO055.
   */
-void loadCalibrationData()
+void loadCalibrationData(bool sicMatrix)
 {
     HAL_StatusTypeDef info;
 
-    setOperationMode(BNO055_OPR_MODE_CONFIG);
+    setOperationMode(OPR_MODE_CONFIG);
     HAL_Delay(20);
-
-    // Check what we're about to write before sending it
-    uint8_t allZero = 1;
-    for (int i = 0; i < CALIB_OFFSET_SIZE; i++) {
-        if (savedOffsets[i] != 0) { allZero = 0; break; }
-    }
-
-    printf("\r\n===== LOADING CALIBRATION OFFSETS =====\r\n");
-    printf("Accel offset:  X=%6d  Y=%6d  Z=%6d\r\n",
-        (int16_t)(savedOffsets[1]  << 8 | savedOffsets[0]),
-        (int16_t)(savedOffsets[3]  << 8 | savedOffsets[2]),
-        (int16_t)(savedOffsets[5]  << 8 | savedOffsets[4]));
-    printf("Mag   offset:  X=%6d  Y=%6d  Z=%6d\r\n",
-        (int16_t)(savedOffsets[7]  << 8 | savedOffsets[6]),
-        (int16_t)(savedOffsets[9]  << 8 | savedOffsets[8]),
-        (int16_t)(savedOffsets[11] << 8 | savedOffsets[10]));
-    printf("Gyro  offset:  X=%6d  Y=%6d  Z=%6d\r\n",
-        (int16_t)(savedOffsets[13] << 8 | savedOffsets[12]),
-        (int16_t)(savedOffsets[15] << 8 | savedOffsets[14]),
-        (int16_t)(savedOffsets[17] << 8 | savedOffsets[16]));
-    printf("All zeros: %s\r\n", allZero ? "YES — writing zeroes, this won't help" : "NO — offsets look valid");
-
-    if (allZero) {
-        printf("WARNING: Skipping load — all offsets are zero, IMU needs calibration first\r\n");
-        printf("========================================\r\n");
-        return;
-    }
 
     if ((info = HAL_I2C_Mem_Write(
         &I2C_BNO055_Handle,
-        BNO055_ADDR << 1,
-        BNO055_CALIB,
+        ADDR << 1,
+        CALIB,
         I2C_MEMADD_SIZE_8BIT,
         savedOffsets,
         CALIB_OFFSET_SIZE,
@@ -781,6 +656,21 @@ void loadCalibrationData()
         return;
     }
 
-    printf("Offsets written successfully\r\n");
-    printf("========================================\r\n");
+    if (sicMatrix) {
+        if ((info = HAL_I2C_Mem_Write(
+        &I2C_BNO055_Handle,
+        ADDR << 1,
+        SICMATRIX,
+        I2C_MEMADD_SIZE_8BIT,
+        savedSicMatrix,
+        CALIB_SICMATRIX_SIZE,
+        5000
+        )) != HAL_OK) {
+            printf("SIC Matrix load FAILED, status: %d, err: 0x%lX\r\n",
+                info, HAL_I2C_GetError(&I2C_BNO055_Handle));
+            return;
+        }
+    }
+
+    printf("Calibration offsets loaded from flash copy\r\n");
 }

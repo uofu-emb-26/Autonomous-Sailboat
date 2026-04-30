@@ -89,12 +89,6 @@ void sensorWind_handler(void *argument)
 {
     for (;;)
     {
-        if (button_getCurrentControlMode() != CONTROL_MODE_SENSOR_WIND)
-        {
-            vTaskDelay(pdMS_TO_TICKS(SENSOR_WIND_IDLE_PERIOD_MS));
-            continue;
-        }
-
         float angle = read_wind_angle_360(SENSOR_ADDRESS);
 
         if (angle < 0.0f)

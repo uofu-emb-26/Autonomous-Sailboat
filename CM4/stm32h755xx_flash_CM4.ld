@@ -37,8 +37,10 @@ ENTRY(Reset_Handler)
 /* Specify the memory areas */
 MEMORY
 {
-FLASH (rx)      : ORIGIN = 0x08100000, LENGTH = 1024K
-RAM (xrw)      : ORIGIN = 0x10000000, LENGTH = 288K
+FLASH (rx)          : ORIGIN = 0x08100000, LENGTH = 896K
+/* Reserve the final Bank 2 sector for persisted calibration data. */
+FLASH_STORAGE (rx)  : ORIGIN = 0x081E0000, LENGTH = 128K
+RAM (xrw)           : ORIGIN = 0x10000000, LENGTH = 288K
 }
 /* Highest address of the user mode stack */
 _estack = 0x10048000;    /* end of RAM */

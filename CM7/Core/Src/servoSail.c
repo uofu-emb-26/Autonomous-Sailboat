@@ -65,12 +65,6 @@ void servoSail_handler(void *argument)
 {
   for (;;)
   {
-    if (button_getCurrentControlMode() != CONTROL_MODE_SERVO_SAIL)
-    {
-      vTaskDelay(pdMS_TO_TICKS(SERVO_SAIL_IDLE_PERIOD_MS));
-      continue;
-    }
-
     uint16_t wind = (uint16_t)(read_wind_angle_360(SENSOR_ADDRESS));
 
     if (wind == 0xFFFF) {
