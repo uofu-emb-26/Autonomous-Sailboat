@@ -1,5 +1,6 @@
 __pycache__
 venv/
+.venv/
 docs/Literature_Review_Presentation.pptx
 
 CM4/build/
