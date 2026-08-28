@@ -17,6 +17,8 @@
 #include "sensorMagnetometer.h"
 #include "sensorGPS.h"
 
+#include "battery.h"
+
 /* Private includes ----------------------------------------------------------*/
 
 //...
