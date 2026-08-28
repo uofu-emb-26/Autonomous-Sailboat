@@ -47,11 +47,16 @@
 
 COM_InitTypeDef BspCOMInit;
 
+TaskHandle_t task_live;
+
 /* Private function prototypes -----------------------------------------------*/
 
 void SystemClock_Config(void);
 void hardware_init(void);
 void rtos_init(void);
+
+void live_hardwareInit();
+void live_handler(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 
@@ -216,6 +221,7 @@ void hardware_init(void)
   SCB->CPACR |= ((3UL << 10*2) | (3UL << 11*2));  // enable FPU
 
   /* USER CODE BEGIN SysInit */
+  live_hardwareInit();
   button_hardwareInit();
 
   servoSail_hardwareInit();
@@ -238,10 +244,36 @@ void rtos_init()
 {
   if ((semphr_button = xSemaphoreCreateBinary()) == NULL) { Error_Handler(); }
 
+  if (xTaskCreate(live_handler,               "liveTask",               64,  NULL, osPriorityNormal,      &task_live)               != pdPASS) { Error_Handler(); }
   if (xTaskCreate(button_handler,             "buttonTask",             64,  NULL, osPriorityNormal,      &task_button)             != pdPASS) { Error_Handler(); }
   if (xTaskCreate(servoSail_handler,          "servoSailTask",          128, NULL, osPriorityNormal,      &task_servoSail)          != pdPASS) { Error_Handler(); }
   if (xTaskCreate(servoRudder_handler,        "servoRudderTask",        128, NULL, osPriorityNormal,      &task_servoRudder)        != pdPASS) { Error_Handler(); }
   if (xTaskCreate(sensorWind_handler,         "sensorWindTask",         512, NULL, osPriorityAboveNormal, &task_sensorWind)         != pdPASS) { Error_Handler(); }
   if (xTaskCreate(sensorMagnetometer_handler, "sensorMagnetometerTask", 128, NULL, osPriorityAboveNormal, &task_sensorMagnetometer) != pdPASS) { Error_Handler(); }
   if (xTaskCreate(sensorGPS_handler,          "sensorGPSTask",          512, NULL, osPriorityAboveNormal, &task_sensorGPS)          != pdPASS) { Error_Handler(); }
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Live Functions
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+void live_hardwareInit()
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+}
+
+void live_handler(void *argument)
+{
+  for(;;)
+  {
+    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
+    vTaskDelay(1000 * portTICK_PERIOD_MS);
+  }
 }
