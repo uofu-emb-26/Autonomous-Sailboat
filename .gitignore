@@ -9,3 +9,11 @@ build/
 .cache/
 .vscode/c_cpp_properties.json
 .clangd
+
+~*
+
+# KiCAD Ignores
+Autonomous_Sailboat-backups/
+\#auto_saved_files\#
+_autosave-Autonomous_Sailboat.*
+*.lck
