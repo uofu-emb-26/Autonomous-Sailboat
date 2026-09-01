@@ -1,8 +1,10 @@
 #include "main.h"
 #include "battery.h"
 
-// PA0/PA1/PA4/PA5 = ADC1 channels 16/17/18/19, wired to balance-lead taps B1..B4
+// PA0/PA4/PA5/PA6 = ADC1 channels 16/18/19/3, wired to balance-lead taps B1..B4
 // (cumulative from pack negative: B1=cell1, B2=cell1+2, B3=cell1+2+3, B4=full pack)
+// PA1 is not used: it's physically tied to the Nucleo's on-board Ethernet PHY
+// REF_CLK, which injects noise regardless of firmware ETH usage.
 #define BATTERY_CELL_COUNT          4u
 #define BATTERY_SAMPLE_PERIOD_MS    500u
 // RC filter tau = (82k || 18k) * 100nF ~= 1.48ms; 10ms is ~6.8 tau (>99.8% settled)
@@ -26,9 +28,9 @@ static ADC_HandleTypeDef hadc1;
 static const uint32_t battery_adcChannels[BATTERY_CELL_COUNT] =
 {
     ADC_CHANNEL_16, // PA0 - B1
-    ADC_CHANNEL_17, // PA1 - B2
-    ADC_CHANNEL_18, // PA4 - B3
-    ADC_CHANNEL_19, // PA5 - B4
+    ADC_CHANNEL_18, // PA4 - B2
+    ADC_CHANNEL_19, // PA5 - B3
+    ADC_CHANNEL_3,  // PA6 - B4
 };
 
 static uint16_t battery_rawTaps[BATTERY_CELL_COUNT];
@@ -43,7 +45,7 @@ static int32_t battery_countsToTapMv(uint16_t counts);
 void battery_hardwareInit()
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
-    GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_4 | GPIO_PIN_5;
+    GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
