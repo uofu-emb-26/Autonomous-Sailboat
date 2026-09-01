@@ -189,6 +189,7 @@ void hardware_init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
 
@@ -196,6 +197,7 @@ void hardware_init(void)
   __HAL_RCC_UART4_CLK_ENABLE();
   __HAL_RCC_I2C2_CLK_ENABLE();
   __HAL_RCC_UART7_CLK_ENABLE();
+  __HAL_RCC_ADC12_CLK_ENABLE();
 
   SystemClock_Config();
 
@@ -226,12 +228,13 @@ void hardware_init(void)
   live_hardwareInit();
   button_hardwareInit();
 
-  servoSail_hardwareInit();
-  servoRudder_hardwareInit();
+  // servoSail_hardwareInit();
+  // servoRudder_hardwareInit();
 
-  sensorWind_hardwareInit();
-  sensorMagnetometer_hardwareInit();
-  sensorGPS_hardwareInit();
+  // sensorWind_hardwareInit();
+  // sensorMagnetometer_hardwareInit();
+  // sensorGPS_hardwareInit();
+  battery_hardwareInit();
   /* USER CODE END SysInit */
 
   /* USER CODE BEGIN 2 */
@@ -248,11 +251,12 @@ void rtos_init()
 
   if (xTaskCreate(live_handler,               "liveTask",               64,  NULL, osPriorityNormal,      &task_live)               != pdPASS) { Error_Handler(); }
   if (xTaskCreate(button_handler,             "buttonTask",             64,  NULL, osPriorityNormal,      &task_button)             != pdPASS) { Error_Handler(); }
-  if (xTaskCreate(servoSail_handler,          "servoSailTask",          128, NULL, osPriorityNormal,      &task_servoSail)          != pdPASS) { Error_Handler(); }
-  if (xTaskCreate(servoRudder_handler,        "servoRudderTask",        128, NULL, osPriorityNormal,      &task_servoRudder)        != pdPASS) { Error_Handler(); }
-  if (xTaskCreate(sensorWind_handler,         "sensorWindTask",         512, NULL, osPriorityAboveNormal, &task_sensorWind)         != pdPASS) { Error_Handler(); }
-  if (xTaskCreate(sensorMagnetometer_handler, "sensorMagnetometerTask", 128, NULL, osPriorityAboveNormal, &task_sensorMagnetometer) != pdPASS) { Error_Handler(); }
-  if (xTaskCreate(sensorGPS_handler,          "sensorGPSTask",          512, NULL, osPriorityAboveNormal, &task_sensorGPS)          != pdPASS) { Error_Handler(); }
+  // if (xTaskCreate(servoSail_handler,          "servoSailTask",          128, NULL, osPriorityNormal,      &task_servoSail)          != pdPASS) { Error_Handler(); }
+  // if (xTaskCreate(servoRudder_handler,        "servoRudderTask",        128, NULL, osPriorityNormal,      &task_servoRudder)        != pdPASS) { Error_Handler(); }
+  // if (xTaskCreate(sensorWind_handler,         "sensorWindTask",         512, NULL, osPriorityAboveNormal, &task_sensorWind)         != pdPASS) { Error_Handler(); }
+  // if (xTaskCreate(sensorMagnetometer_handler, "sensorMagnetometerTask", 128, NULL, osPriorityAboveNormal, &task_sensorMagnetometer) != pdPASS) { Error_Handler(); }
+  // if (xTaskCreate(sensorGPS_handler,          "sensorGPSTask",          512, NULL, osPriorityAboveNormal, &task_sensorGPS)          != pdPASS) { Error_Handler(); }
+  if (xTaskCreate(battery_handler,            "batteryTask",            128, NULL, osPriorityNormal,      &task_battery)            != pdPASS) { Error_Handler(); }
 }
 
 

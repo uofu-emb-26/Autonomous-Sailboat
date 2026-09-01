@@ -35,5 +35,5 @@ This STM32 is equiped with a virtual serial port that lets you connect to its se
 linux
 ```bash
 screen $(ls /dev/ttyACM* | head -1) 115200 # To start the screen
-# To stop the screen click "k".
+# To stop the screen click "ctrl+A" then "k".
 ```
