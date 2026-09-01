@@ -9,6 +9,8 @@
 #define BATTERY_SAMPLE_PERIOD_MS    500u
 // RC filter tau = (82k || 18k) * 100nF ~= 1.48ms; 10ms is ~6.8 tau (>99.8% settled)
 #define BATTERY_SETTLE_MS           10u
+// Number of raw conversions averaged per channel each cycle (integer average, no floats)
+#define BATTERY_AVG_SAMPLES         32u
 
 // Fixed-point conversion constants (no floating point)
 #define BATTERY_ADC_VREF_MV         3300
@@ -115,16 +117,27 @@ static void battery_adcInit(void)
     }
 }
 
-// Reads one raw sample from each of the 4 balance-tap channels into battery_rawTaps
+// Reads BATTERY_AVG_SAMPLES scans of the 4 balance-tap channels and averages
+// each channel into battery_rawTaps
 static void battery_sampleTaps(void)
 {
-    HAL_ADC_Start(&hadc1);
+    uint32_t sums[BATTERY_CELL_COUNT] = {0};
+
+    for (uint32_t s = 0; s < BATTERY_AVG_SAMPLES; s++)
+    {
+        HAL_ADC_Start(&hadc1);
+        for (uint32_t i = 0; i < BATTERY_CELL_COUNT; i++)
+        {
+            HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+            sums[i] += HAL_ADC_GetValue(&hadc1);
+        }
+        HAL_ADC_Stop(&hadc1);
+    }
+
     for (uint32_t i = 0; i < BATTERY_CELL_COUNT; i++)
     {
-        HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-        battery_rawTaps[i] = (uint16_t)HAL_ADC_GetValue(&hadc1);
+        battery_rawTaps[i] = (uint16_t)(sums[i] / BATTERY_AVG_SAMPLES);
     }
-    HAL_ADC_Stop(&hadc1);
 }
 
 // Raw ADC count on one tap -> millivolts at the battery tap (before the divider), fixed-point only
