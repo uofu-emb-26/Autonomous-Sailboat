@@ -1,7 +1,7 @@
 #include "main.h"
 #include "stm32h7xx_hal_i2c.h"
 #include <stdint.h>
-#include "sensorMagnetometer.h"
+#include "sensorEncoder.h"
 #include <math.h>
 
 #ifndef AS5600_REGS_H
@@ -48,69 +48,58 @@
 
 #endif /* AS5600_REGS_H */
 
-#define TRUE 0x01
-#define FALSE 0x00
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846f
-#endif
-
 // Helper macro to split a float into printable integer parts
 #define FLOAT_INT(f)  ((int)(f))
 #define FLOAT_FRAC(f) ((int)(fabsf((f) - (int)(f)) * 10000))
 
-void setOperationMode(uint8_t mode);
-static void readChip(uint8_t regADDR, const char *name);
-void readVectorDynamic(uint8_t startReg, uint8_t bytes, const char *name, uint8_t *vectorData);
-void fillStruct();
-void printIMU();
+static HAL_StatusTypeDef AS5600_readRegs(uint8_t reg, uint8_t *buf, uint16_t len);
+static HAL_StatusTypeDef AS5600_writeReg(uint8_t reg, uint8_t value);
+static HAL_StatusTypeDef AS5600_read12(uint8_t regH, uint16_t *value);
+static void fillStruct();
+static void printEncoder();
 
 #pragma pack(1) // ensure no padding between fields
 typedef struct {
-    // Raw sensor vectors
-    int16_t acc_x,  acc_y,  acc_z;
-    int16_t gyro_x, gyro_y, gyro_z;
-    int16_t mag_x,  mag_y,  mag_z;
-
-    //Quaternion Fusion Mode Values
-    int16_t w, x, y, z;
+    uint16_t raw_angle;   // 0-4095, unscaled angle
+    uint16_t angle;       // 0-4095, scaled by ZPOS/MPOS/MANG (same as raw_angle until those are programmed)
+    uint16_t magnitude;   // internal CORDIC magnitude
+    uint8_t  status;      // MD/ML/MH bits
+    uint8_t  agc;         // gain: 0-255 at 5V, 0-128 at 3.3V (aim for the middle)
 
     // Claude said to have ths for when we transfer between cores
     uint32_t update_count;
 } Encoder_Data;
 #pragma pack()
 
-Encoder_Data IMU = {0};
-TaskHandle_t task_sensorMagnetometer;
-I2C_HandleTypeDef I2C_BNO055_Handle;
-uint8_t currentMode;
+Encoder_Data encoder = {0};
+TaskHandle_t task_sensorEncoder;
+I2C_HandleTypeDef I2C_AS5600_Handle;
 
 /**
   * Initialize the hardware.
   */
-void sensorMagnetometer_hardwareInit()
+void sensorEncoder_hardwareInit()
 {
-    // Page 65 of the chip datasheet says pf0 and pf1 are I2c_SDA and I2c_SCL
-    // added  __HAL_RCC_GPIOF_CLK_ENABLE(); to the main.c
-    // added __HAL_RCC_I2C2_CLK_ENABLE(); to the main.c
+    // Using PB6 I2C1_SCL and PB7 I2C1_SDA
+    // added __HAL_RCC_I2C1_CLK_ENABLE(); to the main.c
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-    // using PB11 for I2C2_SDA
-    GPIO_InitStruct.Pin = GPIO_PIN_11;
+    // using PB7 for I2C1_SDA
+    GPIO_InitStruct.Pin = GPIO_PIN_7;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_OD; // Open Drain - OD
-    GPIO_InitStruct.Pull = GPIO_NOPULL; 
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    GPIO_InitStruct.Alternate = GPIO_AF4_I2C2;
+    GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    // using PB10 for I2C2_SCL
-    GPIO_InitStruct.Pin = GPIO_PIN_10;
+    // using PB6 for I2C1_SCL
+    GPIO_InitStruct.Pin = GPIO_PIN_6;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
     // HAL_StatusTypeDef HAL_I2C_Init(I2C_HandleTypeDef *hi2c);                      line 601 of Stm32h7xx_hal_i2c.h
     // I2C_TypeDef                *Instance;      /*!< I2C registers base address    line 186 of Stm32h7xx_hal_i2c.h
     // I2C_InitTypeDef            Init;           /*!< I2C communication parameters  line 187 of Stm32h7xx_hal_i2c.h
-    I2C_BNO055_Handle.Instance = I2C2; 
+    I2C_AS5600_Handle.Instance = I2C1;
 
     //<---------------Connor and Charbel Timing Setup----------------->
     // Use table example in reference manual (use 64Mhz base clock divide by 16 to get 4MHz)
@@ -127,207 +116,129 @@ void sensorMagnetometer_hardwareInit()
     //
     // With 64MHz kernel clock and PRESC=15: tick = 1/(64MHz/16) = 250ns
     // SCLDEL=4 -> setup  = 5   * 250ns = 1250ns
-    // SDADEL=2 -> hold   = 2   * 250ns =  500ns
+    // SDADEL=1 -> hold   = 1   * 250ns =  250ns (AS5600 max data hold is 450ns)
     // SCLH=15  -> high   = 16  * 250ns = 4000ns
     // SCLL=19  -> low    = 20  * 250ns = 5000ns
     // f_SCL = 1 / (4000ns + 5000ns) ~= 111kHz (standard-mode 100kHz, rise/fall times account for the rest)
-    I2C_BNO055_Handle.Init.Timing =
+    I2C_AS5600_Handle.Init.Timing =
         (0xFU << 28) |  // PRESC  = 15 : 64MHz / 16 = 4MHz (250ns per tick)
         (0x0U << 24) |  // reserved
         (0x4U << 20) |  // SCLDEL =  4 : SCL data setup  = 5   ticks = 1.25us
-        (0x2U << 16) |  // SDADEL =  2 : SDA data hold   = 2   ticks = 500ns
+        (0x1U << 16) |  // SDADEL =  1 : SDA data hold   = 1   ticks = 250ns
         (0x0FU << 8) |  // SCLH   = 15 : SCL high period = 16  ticks = 4us
         (0x13U << 0);   // SCLL   = 19 : SCL low  period = 20  ticks = 5us
 
-    I2C_BNO055_Handle.Init.AddressingMode =  I2C_ADDRESSINGMODE_7BIT;
-    I2C_BNO055_Handle.Init.OwnAddress1 = 0x1;
-    I2C_BNO055_Handle.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-    I2C_BNO055_Handle.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-    I2C_BNO055_Handle.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-    
-    if (HAL_I2C_Init(&I2C_BNO055_Handle) != HAL_OK) {
-        printf("I2C Init Error");
+    I2C_AS5600_Handle.Init.AddressingMode =  I2C_ADDRESSINGMODE_7BIT;
+    I2C_AS5600_Handle.Init.OwnAddress1 = 0x1;
+    I2C_AS5600_Handle.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+    I2C_AS5600_Handle.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+    I2C_AS5600_Handle.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+
+    if (HAL_I2C_Init(&I2C_AS5600_Handle) != HAL_OK) {
+        printf("I2C1 (AS5600) Init Error");
         Error_Handler();
     }
 
-    // BNO055 requires up to 650ms after power-on before it responds to I2C.
-    // Without this delay the first transaction gets a NACK (error 0x2) which
-    // can then leave the peripheral in a stuck state (error 0x20).
-    HAL_Delay(700);
+    // AS5600 power-up time T_PU = 10ms max (datasheet p.8)
+    HAL_Delay(10);
 
-    readWhoAmI();
-    readSelfTest();
-    currentMode = BNO055_OPR_MODE_NDOF; // USER: only change this line to set mode
-
-    if (!(currentMode >= BNO055_OPR_MODE_IMUPLUS && currentMode <= BNO055_OPR_MODE_NDOF))
-    {
-        // Non-fusion mode — just set it, no calibration needed
-        setOperationMode(currentMode);
+    // AS5600 has no WHO_AM_I register, so an ACK on its address is the check
+    if (HAL_I2C_IsDeviceReady(&I2C_AS5600_Handle, AS5600_ADDR << 1, 3, 100) != HAL_OK) {
+        printf("AS5600 not responding at 0x%02X, I2C error: 0x%lX\r\n", AS5600_ADDR, HAL_I2C_GetError(&I2C_AS5600_Handle));
+        return;
     }
-    if (isCalibrated) {
-        // Step 1: Must be in CONFIG mode to write offsets (chip powers on here anyway)
-        setOperationMode(BNO055_OPR_MODE_CONFIG);
 
-        // Step 2: Write saved offsets — gives fusion algorithm a head start
-        loadCalibrationData();
-
-        // Step 3: Enter fusion mode — algorithm starts running and will
-        setOperationMode(BNO055_OPR_MODE_NDOF);
-
-        // Step 4: Still poll CALIB_STAT — but with good offsets loaded
-        // this should reach 3/3/3 in seconds, not minutes
-        printf("Offsets loaded — waiting for fusion algorithm to confirm calibration...\r\n");
-        while (checkCalibration(1) == 0)
-        {
-            HAL_Delay(500);
-        }
-        printf("Calibration confirmed\r\n");
-    }
-    else
-    {
-        // First boot in fusion mode — must set fusion mode FIRST so the calibration
-        // algorithm runs, then poll until all three sensors reach 3/3
-
-        setOperationMode(currentMode);
-        HAL_Delay(20);
-
-        printf("Move sensor in figure-8 for mag, hold 6 orientations for acc, keep still for gyro\r\n");
-        int count = 0;
-        while (checkCalibration(0) == 0 && count < 90)
-        {
-            count++;
-            HAL_Delay(2000);
-        }
-
-        // saveCalibrationOffsets switches to CONFIG_MODE internally to read offsets
-        saveCalibrationData();
-        HAL_Delay(10000);
-        isCalibrated = TRUE;
-        printf("BNO055 fully calibrated\r\n");
-
-        // Restore fusion mode (save left chip in CONFIG_MODE)
-        setOperationMode(currentMode);
+    uint8_t status = 0;
+    if (AS5600_readRegs(AS5600_STATUS, &status, 1) == HAL_OK) {
+        printf("AS5600 STATUS 0x%02X: MD=%d ML=%d MH=%d\r\n", status,
+               !!(status & AS5600_STATUS_MD), !!(status & AS5600_STATUS_ML), !!(status & AS5600_STATUS_MH));
     }
 }
-
-void setOperationMode(uint8_t mode)
-{
-    HAL_I2C_Mem_Write(&I2C_BNO055_Handle, BNO055_ADDR << 1, BNO055_OPR_MODE, I2C_MEMADD_SIZE_8BIT, &mode, 1, 1000);
-    HAL_Delay(25); // small delay to allow mode switch to take effect
-    currentMode = mode;
-}
-
-// 0xAA is the start byte
 
 /**
   * Handler for the task.
   */
-void sensorMagnetometer_handler(void *argument)
+void sensorEncoder_handler(void *argument)
 {
     for(;;)
     {
         fillStruct();
+        printEncoder();
         vTaskDelay(pdMS_TO_TICKS(1000)); // Delay for demonstration purposes
-        printIMU();
     }
 }
 
-void readWhoAmI() {
-    readChip(BNO055_WHO_AM_I, "Who Am I");
-}
-
-static void readChip(uint8_t regADDR, const char *name)
-{   
-    uint8_t receiveBuff = 0;
-    uint8_t expected = 0;
-
-    HAL_StatusTypeDef info;
-
-    info = HAL_I2C_Mem_Read(&I2C_BNO055_Handle, BNO055_ADDR << 1, regADDR,
-                            I2C_MEMADD_SIZE_8BIT, &receiveBuff, 1, 5000);
-
-    if (info != HAL_OK) {
-        //printf("%s FAILED, HAL status: %d, I2C error: 0x%lX\r\n", name, info, HAL_I2C_GetError(&I2C_BNO055_Handle));
-        HAL_I2C_DeInit(&I2C_BNO055_Handle);
-        HAL_I2C_Init(&I2C_BNO055_Handle);
-        return;
-    }
-
-    switch (regADDR) {
-        case BNO055_WHO_AM_I: expected = 0xA0; break;
-        case BNO055_ACC: expected = 0xFB; break;
-        case BNO055_MAG: expected = 0x32; break;
-        case BNO055_GYRO: expected = 0x0F; break;
-        case BNO055_ST_RESULT: expected = 0x0F; break;
-        default: expected = 0xff;
-    }
-
-    if(receiveBuff == expected)
-    {
-        printf("BNO055 %s OK: 0x%02X\r\n", name, receiveBuff);
-    }
-    else
-    {
-        printf("BNO055 %s FAILED: expected 0x%02X, got 0x%02X\r\n", name, expected, receiveBuff);
-    }
-}
-
-static void BNO055_readVector(uint8_t startReg, const char *name, int16_t *xData, int16_t *yData, int16_t *zData)
+/**
+  * Read len bytes starting at reg. The address pointer auto-increments, so
+  * len > 1 reads consecutive registers.
+  */
+static HAL_StatusTypeDef AS5600_readRegs(uint8_t reg, uint8_t *buf, uint16_t len)
 {
-    uint8_t data[6] = {0xF, 0xF, 0xF, 0xF, 0xF, 0xF}; // Initialize with invalid data for easier debugging
-    HAL_StatusTypeDef info;
-
-    if ((info = HAL_I2C_Mem_Read(
-        &I2C_BNO055_Handle,
-        BNO055_ADDR << 1,       // 7-bit addr shifted for HAL
-        startReg,               // register to start reading from
-        I2C_MEMADD_SIZE_8BIT,   // BNO055 uses 8-bit register addresses
-        data,                   // output buffer
-        6,                      // read 6 bytes (LSB+MSB for X, Y, Z)
-        5000                    // timeout ms
-    )) != HAL_OK) {
-        //printf("%s Transmit FAILED, HAL status: %d, I2C error: 0x%lX\r\n", name, info, HAL_I2C_GetError(&I2C_BNO055_Handle));
+    HAL_StatusTypeDef status = HAL_I2C_Mem_Read(&I2C_AS5600_Handle, AS5600_ADDR << 1, reg,
+                                                I2C_MEMADD_SIZE_8BIT, buf, len, 100);
+    if (status != HAL_OK) {
+        printf("AS5600 read 0x%02X failed, HAL status: %d, I2C error: 0x%lX\r\n",
+               reg, status, HAL_I2C_GetError(&I2C_AS5600_Handle));
     }
-
-    int16_t x = (int16_t)((data[1] << 8) | data[0]);
-    int16_t y = (int16_t)((data[3] << 8) | data[2]);
-    int16_t z = (int16_t)((data[5] << 8) | data[4]);
-    *xData = x; *yData = y; *zData = z;
+    return status;
 }
 
-void readVectorDynamic(uint8_t startReg, uint8_t bytes, const char *name, uint8_t *vectorData)
+/**
+  * Write one byte to reg. Never use this on AS5600_BURN: that permanently
+  * programs the one-time memory.
+  */
+static HAL_StatusTypeDef AS5600_writeReg(uint8_t reg, uint8_t value)
 {
-    HAL_StatusTypeDef info;
-
-    if ((info = HAL_I2C_Mem_Read(
-        &I2C_BNO055_Handle,
-        BNO055_ADDR << 1,       // 7-bit addr shifted for HAL
-        startReg,               // register to start reading from
-        I2C_MEMADD_SIZE_8BIT,   // BNO055 uses 8-bit register addresses
-        vectorData,                 // output buffer
-        bytes,                   // number of bytes to read
-        5000                    // timeout ms
-    )) != HAL_OK) {
-        printf("%s Transmit FAILED, HAL status: %d, I2C error: 0x%lX\r\n", name, info, HAL_I2C_GetError(&I2C_BNO055_Handle));
-        return;
+    HAL_StatusTypeDef status = HAL_I2C_Mem_Write(&I2C_AS5600_Handle, AS5600_ADDR << 1, reg,
+                                                 I2C_MEMADD_SIZE_8BIT, &value, 1, 100);
+    if (status != HAL_OK) {
+        printf("AS5600 write 0x%02X failed, HAL status: %d, I2C error: 0x%lX\r\n",
+               reg, status, HAL_I2C_GetError(&I2C_AS5600_Handle));
     }
-
-    printf("\r\n");
+    return status;
 }
 
-void readQuaternion() {
-    uint8_t quat[8] = {0};
-    readVectorDynamic(BNO055_Quaternion_LSB, 8, "Quaternion Data", quat);
-    IMU.w = (quat[1] << 8) | quat[0];
-    IMU.x = (quat[3] << 8) | quat[2];
-    IMU.y = (quat[5] << 8) | quat[4];
-    IMU.z = (quat[7] << 8) | quat[6];
+/**
+  * Read a 12-bit H/L register pair. Pass the _H register (e.g. AS5600_RAW_ANGLE_H):
+  * ANGLE, RAW ANGLE and MAGNITUDE only handle the address pointer correctly when
+  * the read starts at the high byte (datasheet p.13).
+  */
+static HAL_StatusTypeDef AS5600_read12(uint8_t regH, uint16_t *value)
+{
+    uint8_t buf[2];
+    HAL_StatusTypeDef status = AS5600_readRegs(regH, buf, 2);
+    if (status == HAL_OK) {
+        *value = ((buf[0] << 8) | buf[1]) & AS5600_12BIT_MASK;
+    }
+    return status;
 }
 
-void fillStruct() {
-    readACC_Vector();
-    readMAG_Vector();
-    readGYRO_Vector();
-    readQuaternion();
+static void fillStruct()
+{
+    // Read into locals: the struct is packed, so taking &encoder.field gives an unaligned pointer
+    uint16_t raw_angle = 0, angle = 0, magnitude = 0;
+    uint8_t status = 0, agc = 0;
+
+    AS5600_read12(AS5600_RAW_ANGLE_H, &raw_angle);
+    AS5600_read12(AS5600_ANGLE_H, &angle);
+    AS5600_read12(AS5600_MAGNITUDE_H, &magnitude);
+    AS5600_readRegs(AS5600_STATUS, &status, 1);
+    AS5600_readRegs(AS5600_AGC, &agc, 1);
+
+    encoder.raw_angle = raw_angle;
+    encoder.angle     = angle;
+    encoder.magnitude = magnitude;
+    encoder.status    = status;
+    encoder.agc       = agc;
+    encoder.update_count++;
 }
 
+static void printEncoder()
+{
+    float degrees = encoder.raw_angle * 360.0f / 4096.0f;
+
+    printf("AS5600 raw: %4u (%d.%04d deg) | STATUS MD=%d ML=%d MH=%d | AGC: %u | MAG: %u\r\n",
+           encoder.raw_angle, FLOAT_INT(degrees), FLOAT_FRAC(degrees),
+           !!(encoder.status & AS5600_STATUS_MD), !!(encoder.status & AS5600_STATUS_ML),
+           !!(encoder.status & AS5600_STATUS_MH), encoder.agc, encoder.magnitude);
+}
